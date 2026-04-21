@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Articole</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inconsolata:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="#">
+      <i class="bi bi-journal-text me-2"></i>Agent Articole
+    </a>
+    <div class="navbar-nav ms-auto">
+      <button class="btn btn-outline-light btn-sm" onclick="showSection('dashboard')">
+        <i class="bi bi-speedometer2 me-1"></i>Dashboard
+      </button>
+      <button class="btn btn-outline-light btn-sm ms-2" onclick="toggleLogs()" id="btn-logs" title="Deschide/inchide fereastra de log-uri">
+        <i class="bi bi-terminal me-1"></i>Logs
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid">
+  <div class="row">
+
+    <!-- Sidebar -->
+    <nav class="col-md-2 d-none d-md-block sidebar py-3">
+      <div class="list-group list-group-flush">
+        <a href="#" class="list-group-item list-group-item-action active" onclick="showSection('dashboard')" id="nav-dashboard">
+          <i class="bi bi-speedometer2 me-2"></i>Dashboard
+        </a>
+        <a href="#" class="list-group-item list-group-item-action" onclick="showSection('topics')" id="nav-topics">
+          <i class="bi bi-tags me-2"></i>Topicuri
+        </a>
+        <a href="#" class="list-group-item list-group-item-action" onclick="showSection('users')" id="nav-users">
+          <i class="bi bi-people me-2"></i>Utilizatori
+        </a>
+        <a href="#" class="list-group-item list-group-item-action" onclick="showSection('results')" id="nav-results">
+          <i class="bi bi-search me-2"></i>Rezultate
+        </a>
+        <a href="#" class="list-group-item list-group-item-action" onclick="showSection('runs')" id="nav-runs">
+          <i class="bi bi-clock-history me-2"></i>Istornic Rulari
+        </a>
+        <a href="/documentation" target="_blank" class="list-group-item list-group-item-action text-muted">
+          <i class="bi bi-journal-text me-2"></i>Documentatie
+        </a>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="col-md-10 ms-sm-auto px-4 py-4">
+
+      <!-- ── DASHBOARD ───────────────────────────────────────────── -->
+      <section id="section-dashboard">
+        <h4 class="mb-4"><i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard</h4>
+        <div class="row g-3 mb-4" id="dashboard-stats">
+          <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+              <div class="fs-1 text-primary fw-bold" id="stat-topics">—</div>
+              <div class="text-muted small">Topicuri active</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+              <div class="fs-1 text-success fw-bold" id="stat-users">—</div>
+              <div class="text-muted small">Utilizatori</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+              <div class="fs-1 text-info fw-bold" id="stat-results">—</div>
+              <div class="text-muted small">Articole gasite</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3">
+              <div class="fs-1 text-warning fw-bold" id="stat-runs">—</div>
+              <div class="text-muted small">Rulari totale</div>
+            </div>
+          </div>
+        </div>
+
+        <h6 class="mb-3">Topicuri active</h6>
+        <div id="dashboard-topics" class="row g-3"></div>
+      </section>
+
+      <!-- ── TOPICURI ────────────────────────────────────────────── -->
+      <section id="section-topics" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h4><i class="bi bi-tags me-2 text-primary"></i>Topicuri</h4>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTopic" onclick="openTopicModal()">
+            <i class="bi bi-plus-lg me-1"></i>Topic nou
+          </button>
+        </div>
+        <div id="topics-list"></div>
+      </section>
+
+      <!-- ── UTILIZATORI ────────────────────────────────────────── -->
+      <section id="section-users" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h4><i class="bi bi-people me-2 text-primary"></i>Utilizatori</h4>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalUser" onclick="openUserModal()">
+            <i class="bi bi-plus-lg me-1"></i>Utilizator nou
+          </button>
+        </div>
+        <div id="users-list"></div>
+      </section>
+
+      <!-- ── REZULTATE ───────────────────────────────────────────── -->
+      <section id="section-results" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4><i class="bi bi-search me-2 text-primary"></i>Rezultate cautari</h4>
+          <div class="d-flex gap-2">
+            <select id="filter-topic" class="form-select form-select-sm" style="width:200px" onchange="loadResults()">
+              <option value="">Toate topicurile</option>
+            </select>
+          </div>
+        </div>
+        <div id="results-list"></div>
+      </section>
+
+      <!-- ── RULARI ──────────────────────────────────────────────── -->
+      <section id="section-runs" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4><i class="bi bi-clock-history me-2 text-primary"></i>Istoric rulari</h4>
+          <div class="d-flex gap-2 align-items-center">
+            <button id="btn-delete-runs" class="btn btn-sm btn-outline-danger d-none" onclick="deleteSelectedRuns()">
+              <i class="bi bi-trash me-1"></i>Sterge selectate (<span id="runs-sel-count">0</span>)
+            </button>
+            <select id="filter-runs-topic" class="form-select form-select-sm" style="width:200px" onchange="loadRuns()">
+              <option value="">Toate topicurile</option>
+            </select>
+          </div>
+        </div>
+        <div id="runs-list"></div>
+      </section>
+
+
+    </main>
+  </div>
+</div>
+
+<!-- ── MODAL TOPIC ──────────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalTopic" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTopicTitle">Topic nou</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="topic-id">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nume topic *</label>
+            <input type="text" class="form-control" id="topic-name" placeholder="ex: AI Medical Imaging">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Provider cautare *</label>
+            <select class="form-select" id="topic-provider">
+              <option value="anthropic">Anthropic (Claude + web_search)</option>
+              <option value="tavily">Tavily</option>
+              <option value="ollama">Ollama + Tavily (local)</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Intrebarea ta catre agent</label>
+            <textarea class="form-control" id="topic-user_question" rows="3"
+              placeholder='ex: "Da-mi toate articolele publicate in reviste de specialitate despre terapia genica in ultimele 7 zile"&#10;Daca lasi gol, agentul foloseste cuvintele cheie de mai jos.'></textarea>
+            <div class="form-text text-primary">
+              <i class="bi bi-stars me-1"></i>Daca completezi, agentul foloseste aceasta intrebare direct. Lasa gol pentru cautare automata din keywords.
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Cuvinte cheie <span id="keywords-required-badge" class="badge bg-secondary" style="font-size:.7rem;vertical-align:middle;">optional daca ai completat intrebarea</span></label>
+            <textarea class="form-control" id="topic-keywords" rows="2"
+              placeholder="ex: deep learning, medical imaging, cancer detection"></textarea>
+            <div class="form-text">Obligatoriu daca intrebarea de mai sus e goala. Separa termenii cu virgula.</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Articole din ultimele N zile</label>
+            <input type="number" class="form-control" id="topic-days_back" value="7" min="1" max="365">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Periodicitate (ore)</label>
+            <input type="number" class="form-control" id="topic-periodicity_hours" value="24" min="0.5" step="0.5">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Status</label>
+            <div class="mt-2">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="topic-active" checked>
+                <label class="form-check-label" for="topic-active">Activ</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="topic-send_email" checked>
+                <label class="form-check-label" for="topic-send_email">Trimite email</label>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Utilizatori abonati</label>
+            <div id="topic-users-checkboxes" class="border rounded p-2" style="max-height:150px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuleaza</button>
+        <button type="button" class="btn btn-primary" onclick="saveTopic()">
+          <i class="bi bi-save me-1"></i>Salveaza
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL USER ───────────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalUser" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalUserTitle">Utilizator nou</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="user-id">
+        <div class="mb-3">
+          <label class="form-label">Nume *</label>
+          <input type="text" class="form-control" id="user-name" placeholder="Ion Popescu">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Email *</label>
+          <input type="email" class="form-control" id="user-email" placeholder="ion@example.com">
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="user-active" checked>
+          <label class="form-check-label" for="user-active">Cont activ</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuleaza</button>
+        <button type="button" class="btn btn-primary" onclick="saveUser()">
+          <i class="bi bi-save me-1"></i>Salveaza
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── RUN TIMER BANNER ───────────────────────────────────────────────────── -->
+<div id="run-timer-banner" style="display:none;position:fixed;top:56px;left:0;right:0;z-index:1060;
+  background:#1a1a2e;color:#e2e8f0;font-family:'Inconsolata',monospace;font-size:13px;
+  padding:7px 16px;display:none;align-items:center;gap:12px;border-bottom:2px solid #4ade80;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);">
+  <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#4ade80;
+    animation:pulse-dot 1s infinite;flex-shrink:0;"></span>
+  <span id="run-timer-topic" style="color:#99f6e4;font-weight:600;"></span>
+  <span style="color:#64748b;">·</span>
+  <span style="color:#94a3b8;">durata:</span>
+  <span id="run-timer-clock" style="color:#fbbf24;font-weight:700;min-width:3ch;">0s</span>
+  <span style="color:#64748b;">·</span>
+  <span style="color:#94a3b8;font-size:11px;">cautare in curs...</span>
+</div>
+<style>
+@keyframes pulse-dot {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.4; transform:scale(.7); }
+}
+</style>
+
+<!-- ── LOG PANEL ─────────────────────────────────────────────────────────── -->
+<div id="log-panel" class="log-panel log-panel-closed">
+  <div class="log-panel-header">
+    <span><i class="bi bi-terminal me-2"></i>Log-uri agent</span>
+    <div class="d-flex gap-2 align-items-center">
+      <span id="log-status" class="badge bg-secondary">deconectat</span>
+      <button class="btn btn-sm btn-outline-secondary py-0" onclick="clearLogs()" title="Sterge log-urile">
+        <i class="bi bi-trash"></i>
+      </button>
+      <button class="btn btn-sm btn-outline-secondary py-0" onclick="toggleLogs()" title="Inchide">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+  </div>
+  <div id="log-body" class="log-body"></div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+  <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ── FOOTER ──────────────────────────────────────────────────────────────── -->
+<footer id="app-footer" class="app-footer">
+  <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between px-3">
+    <div class="d-flex gap-3 flex-wrap">
+      <span class="footer-item" id="f-model" title="Model Anthropic">
+        <i class="bi bi-robot me-1 text-primary"></i><span>—</span>
+      </span>
+      <span class="footer-item" id="f-tavily" title="Tavily">
+        <i class="bi bi-search me-1 text-warning"></i><span>—</span>
+      </span>
+      <span class="footer-item" id="f-ollama" title="Ollama local">
+        <i class="bi bi-hdd-stack me-1 text-success"></i><span>—</span>
+      </span>
+      <span class="footer-item" id="f-smtp" title="Email SMTP">
+        <i class="bi bi-envelope me-1 text-info"></i><span>—</span>
+      </span>
+      <span class="footer-sep">|</span>
+      <span class="footer-item" id="f-topics" title="Topicuri active">
+        <i class="bi bi-tags me-1"></i><span>—</span>
+      </span>
+      <span class="footer-item" id="f-results" title="Articole gasite total">
+        <i class="bi bi-files me-1"></i><span>—</span>
+      </span>
+    </div>
+    <div class="d-flex gap-3 align-items-center">
+      <span class="footer-item text-muted" id="f-lastrun" title="Ultima rulare">
+        <i class="bi bi-clock me-1"></i><span>—</span>
+      </span>
+      <a href="/docs" target="_blank" class="footer-link">
+        <i class="bi bi-book me-1"></i>API Docs
+      </a>
+      <span class="text-muted footer-item">v1.0.0</span>
+      <span class="footer-sep">|</span>
+      <span class="footer-item" style="color:var(--muted);letter-spacing:.03em;">remhere-2026</span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js?v=3"></script>
+</body>
+</html>
