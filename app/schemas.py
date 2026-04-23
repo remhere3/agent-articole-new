@@ -36,6 +36,10 @@ class TopicBase(BaseModel):
     days_back: int = 7
     periodicity_hours: float = 24.0
     provider: str = "anthropic"
+    fallback_provider: Optional[str] = None
+    run_at_time: Optional[str] = None   # "HH:MM" UTC
+    email_mode: str = "immediate"
+    deduplicate: bool = True
     active: bool = True
     send_email: bool = True
 
@@ -45,6 +49,35 @@ class TopicBase(BaseModel):
         allowed = {"anthropic", "tavily", "ollama"}
         if v not in allowed:
             raise ValueError(f"provider must be one of {allowed}")
+        return v
+
+    @field_validator("fallback_provider")
+    @classmethod
+    def validate_fallback_provider(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            allowed = {"anthropic", "tavily", "ollama"}
+            if v not in allowed:
+                raise ValueError(f"fallback_provider must be one of {allowed}")
+        return v
+
+    @field_validator("email_mode")
+    @classmethod
+    def validate_email_mode(cls, v: str) -> str:
+        allowed = {"immediate", "daily_digest"}
+        if v not in allowed:
+            raise ValueError(f"email_mode must be one of {allowed}")
+        return v
+
+    @field_validator("run_at_time")
+    @classmethod
+    def validate_run_at_time(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            import re
+            if not re.match(r'^\d{2}:\d{2}$', v):
+                raise ValueError("run_at_time must be in HH:MM format")
+            h, m = int(v[:2]), int(v[3:])
+            if not (0 <= h <= 23 and 0 <= m <= 59):
+                raise ValueError("run_at_time has invalid hour/minute")
         return v
 
     @model_validator(mode="after")
@@ -79,6 +112,10 @@ class TopicUpdate(BaseModel):
     days_back: Optional[int] = None
     periodicity_hours: Optional[float] = None
     provider: Optional[str] = None
+    fallback_provider: Optional[str] = None
+    run_at_time: Optional[str] = None
+    email_mode: Optional[str] = None
+    deduplicate: Optional[bool] = None
     active: Optional[bool] = None
     send_email: Optional[bool] = None
     user_ids: Optional[List[int]] = None
@@ -87,6 +124,9 @@ class TopicUpdate(BaseModel):
 class TopicOut(TopicBase):
     id: int
     user_question: Optional[str] = None
+    fallback_provider: Optional[str] = None
+    run_at_time: Optional[str] = None
+    email_mode: str = "immediate"
     created_at: datetime
     last_run_at: Optional[datetime] = None
     users: List[UserOut] = []
@@ -106,6 +146,7 @@ class SearchResultOut(BaseModel):
     published_date: Optional[str] = None
     summary: Optional[str] = None
     provider: Optional[str] = None
+    relevance_score: Optional[float] = None
     found_at: datetime
     model_config = {"from_attributes": True}
 

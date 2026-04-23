@@ -1,4 +1,18 @@
 services:
+  app:
+    build: .
+    container_name: agent-articole
+    restart: unless-stopped
+    ports:
+      - "8007:8007"
+    volumes:
+      - ./agent_articole.db:/app/agent_articole.db
+    env_file: .env
+    depends_on:
+      - ntfy
+    environment:
+      - DATABASE_URL=sqlite:///./agent_articole.db
+
   ntfy:
     image: binwiederhier/ntfy
     container_name: ntfy

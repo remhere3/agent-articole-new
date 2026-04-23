@@ -24,6 +24,9 @@
       <button class="btn btn-outline-light btn-sm ms-2" onclick="toggleLogs()" id="btn-logs" title="Deschide/inchide fereastra de log-uri">
         <i class="bi bi-terminal me-1"></i>Logs
       </button>
+      <button class="btn btn-outline-light btn-sm ms-2" onclick="openApiKeyModal()" title="Seteaza API Key pentru autentificare">
+        <i class="bi bi-key me-1"></i>API Key
+      </button>
     </div>
   </div>
 </nav>
@@ -122,6 +125,12 @@
             <select id="filter-topic" class="form-select form-select-sm" style="width:200px" onchange="loadResults()">
               <option value="">Toate topicurile</option>
             </select>
+            <button class="btn btn-outline-secondary btn-sm" onclick="exportResults('csv')" title="Export CSV">
+              <i class="bi bi-filetype-csv me-1"></i>CSV
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="exportResults('json')" title="Export JSON">
+              <i class="bi bi-filetype-json me-1"></i>JSON
+            </button>
           </div>
         </div>
         <div id="results-list"></div>
@@ -194,11 +203,36 @@
             <input type="number" class="form-control" id="topic-periodicity_hours" value="24" min="0.5" step="0.5">
           </div>
           <div class="col-md-4">
+            <label class="form-label">Ora zilnică rulare (UTC)</label>
+            <input type="text" class="form-control" id="topic-run_at_time" placeholder="ex: 07:00" maxlength="5">
+            <div class="form-text">Opțional. Format HH:MM. Dacă setat, ignoră periodicitatea.</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Provider fallback</label>
+            <select class="form-select" id="topic-fallback_provider">
+              <option value="">Niciun fallback</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="tavily">Tavily</option>
+              <option value="ollama">Ollama</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Mod email</label>
+            <select class="form-select" id="topic-email_mode">
+              <option value="immediate">Imediat după rulare</option>
+              <option value="daily_digest">Digest zilnic (07:00 UTC)</option>
+            </select>
+          </div>
+          <div class="col-md-4">
             <label class="form-label">Status</label>
             <div class="mt-2">
               <div class="form-check form-check-inline">
                 <input class="form-check-input" type="checkbox" id="topic-active" checked>
                 <label class="form-check-label" for="topic-active">Activ</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="topic-deduplicate" checked>
+                <label class="form-check-label" for="topic-deduplicate" title="Salveaza doar articolele care nu au mai fost gasite anterior">Doar articole noi</label>
               </div>
               <div class="form-check form-check-inline">
                 <input class="form-check-input" type="checkbox" id="topic-send_email" checked>
@@ -216,6 +250,51 @@
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuleaza</button>
         <button type="button" class="btn btn-primary" onclick="saveTopic()">
           <i class="bi bi-save me-1"></i>Salveaza
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL API KEY ───────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalApiKey" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-key me-2"></i>API Key</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Dacă aplicația are API_KEY configurat în .env, introdu-l aici. Se salvează local în browser.</p>
+        <label class="form-label">X-API-Key</label>
+        <input type="password" class="form-control" id="api-key-input" placeholder="cheia ta secretă">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="clearApiKey()">Șterge</button>
+        <button type="button" class="btn btn-primary" onclick="saveApiKey()">
+          <i class="bi bi-save me-1"></i>Salvează
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL CONFIRMARE STERGERE ────────────────────────────────────────── -->
+<div class="modal fade" id="modalConfirmDelete" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content" style="border:none;border-radius:.75rem;overflow:hidden;">
+      <div class="modal-body" style="padding:1.5rem 1.5rem .75rem;text-align:center;">
+        <div style="width:3rem;height:3rem;background:#fee2e2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto .9rem;">
+          <i class="bi bi-trash3" style="font-size:1.3rem;color:#dc2626;"></i>
+        </div>
+        <p style="font-weight:600;font-size:.95rem;margin-bottom:.35rem;" id="confirm-delete-title">Stergi run-ul?</p>
+        <p class="text-muted" style="font-size:.83rem;margin:0;" id="confirm-delete-body"></p>
+      </div>
+      <div class="modal-footer" style="border:none;padding:.75rem 1.5rem 1.25rem;justify-content:center;gap:.65rem;">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" style="min-width:5rem;">Anulează</button>
+        <button type="button" class="btn btn-danger btn-sm" id="confirm-delete-btn" onclick="_doConfirmDelete()" style="min-width:5rem;">
+          <i class="bi bi-trash me-1"></i>Șterge
         </button>
       </div>
     </div>
