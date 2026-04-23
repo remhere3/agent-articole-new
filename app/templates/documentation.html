@@ -1044,8 +1044,9 @@ httpx.delete(f"{BASE}/users/1")</pre>
         <tr><td><code>send_email</code></td><td>bool</td><td>true</td><td>Trimite email dupa cautare</td></tr>
         <tr><td><code>user_ids</code></td><td>list[int]</td><td>[]</td><td>Utilizatori abonati</td></tr>
         <tr><td><code>fallback_provider</code></td><td>string|null</td><td>null</td><td>Provider alternativ folosit automat daca cel principal esuaza (<code>anthropic</code> / <code>tavily</code> / <code>ollama</code>), optional</td></tr>
-        <tr><td><code>run_at_time</code></td><td>string|null</td><td>null</td><td>Ora zilnica de rulare in UTC, format <code>HH:MM</code> (ex: <code>06:00</code>). Daca e setat, ignora <code>periodicity_hours</code> si ruleaza zilnic la ora respectiva, optional</td></tr>
-        <tr><td><code>email_mode</code></td><td>string</td><td>immediate</td><td><code>immediate</code> — trimite email dupa fiecare rulare; <code>daily_digest</code> — agrega toate rezultatele zilei intr-un singur email trimis la 07:00 UTC</td></tr>
+        <tr><td><code>run_at_time</code></td><td>string|null</td><td>null</td><td>Ora zilnica de rulare in <strong>Europe/Bucharest</strong>, format <code>HH:MM</code> (ex: <code>07:00</code>). Daca e setat, ignora <code>periodicity_hours</code> si ruleaza zilnic la ora respectiva, optional</td></tr>
+        <tr><td><code>email_mode</code></td><td>string</td><td>immediate</td><td><code>immediate</code> — trimite email dupa fiecare rulare; <code>daily_digest</code> — agrega toate rezultatele zilei intr-un singur email trimis la 07:00 <strong>Europe/Bucharest</strong></td></tr>
+        <tr><td><code>deduplicate</code></td><td>bool</td><td>true</td><td><code>true</code> = salveaza doar articole noi (deduplicare dupa URL <em>si</em> titlu normalizat); <code>false</code> = salveaza toate articolele la fiecare run</td></tr>
       </tbody>
     </table>
 
@@ -1145,7 +1146,9 @@ httpx.post(f"{BASE}/topics/1/users/2")</pre>
       <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/results/export</span></span>
       <span class="d-endpoint"><span class="d-method delete">DELETE</span><span class="d-path">/api/searches/results/{id}</span></span>
     </p>
-    <p>Parametri query: <code>topic_id</code>, <code>limit</code> (default 50/100) &nbsp;·&nbsp;
+    <p>Parametri query: <code>topic_id</code>, <code>limit</code> (default 50/100), <code>offset</code> (default 0) &nbsp;·&nbsp;
+      Header raspuns: <code>X-Total-Count</code> — numarul total de inregistrari (indiferent de paginare) &nbsp;·&nbsp;
+      <code>POST /run/{id}</code> returneaza <strong>HTTP 409</strong> daca exista deja un run in progres pentru acel topic &nbsp;·&nbsp;
       <code>DELETE /runs</code> accepta body JSON <code>{"ids": [1, 2, 3]}</code> — stergere in bulk (articolele aferente sunt sterse automat) &nbsp;·&nbsp;
       <code>GET /results/export</code> accepta <code>format=csv|json</code> si <code>topic_id</code> optional — returneaza fisier pentru download direct</p>
 
@@ -1253,17 +1256,22 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             <tr>
               <td><code>api_calls</code></td>
               <td><span class="d-badge blue">anthropic</span></td>
-              <td>Numar apeluri <code>web_search_20250305</code> (max 5 per run)</td>
+              <td>Numar apeluri <code>web_search_20250305</code> (max 8 per run)</td>
             </tr>
             <tr>
               <td><code>api_calls</code></td>
               <td><span class="d-badge orange">tavily</span></td>
-              <td>Numar cereri Tavily API (2 interogari × 2 treceri academic/general = max 4)</td>
+              <td>Numar cereri Tavily API (2 interogari × 2 treceri academic/general = max 4; optional a 3-a trecere cu <code>user_question</code> daca difera de keywords)</td>
             </tr>
             <tr>
               <td><code>api_calls</code></td>
               <td><span class="d-badge green">ollama</span></td>
               <td>Cereri Tavily + 1 apel LLM local pentru rezumare</td>
+            </tr>
+            <tr>
+              <td><code>cache_read</code></td>
+              <td><span class="d-badge blue">anthropic</span></td>
+              <td>Tokeni cititi din cache (prompt caching ephemeral) — reduc costul cu ~90%</td>
             </tr>
             <tr>
               <td><code>tokens_input</code> / <code>tokens_output</code></td>
