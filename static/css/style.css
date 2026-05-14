@@ -296,7 +296,7 @@ main { padding-bottom: 50px; }
 /* ── Log FAB ─────────────────────────────────────────────── */
 .log-fab {
   position: fixed;
-  bottom: 20px;
+  bottom: 50px;
   left: 20px;
   z-index: 1060;
   width: 48px;
@@ -356,7 +356,7 @@ main { padding-bottom: 50px; }
 /* ── Log panel flotant ───────────────────────────────────── */
 .log-panel {
   position: fixed;
-  bottom: 80px;
+  bottom: 110px;
   left: 20px;
   width: 540px;
   height: 420px;
