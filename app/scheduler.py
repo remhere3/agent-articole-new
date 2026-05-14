@@ -10,7 +10,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
 
-scheduler = AsyncIOScheduler(timezone="UTC")
+scheduler = AsyncIOScheduler(timezone="Europe/Bucharest")
 
 
 def start_scheduler():
@@ -42,7 +42,7 @@ async def orchestrate_searches():
     db = SessionLocal()
     try:
         topics = db.query(models.Topic).filter(models.Topic.active == True).all()  # noqa: E712
-        now = datetime.utcnow()
+        now = datetime.now()
 
         for topic in topics:
             should_run = (
@@ -75,7 +75,7 @@ async def orchestrate_searches():
                 if active_run:
                     active_run.status = "error"
                     active_run.error_message = f"Timeout după {timeout}s"
-                    active_run.finished_at = datetime.utcnow()
+                    active_run.finished_at = datetime.now()
                     db.commit()
     except Exception as e:
         logger.error(f"Orchestration error: {e}")

@@ -40,7 +40,7 @@ def upsert_setting(key: str, payload: schemas.SettingUpdate, db: Session = Depen
     setting = db.query(models.AppSettings).filter(models.AppSettings.key == key).first()
     if setting:
         setting.value = payload.value
-        setting.updated_at = datetime.utcnow()
+        setting.updated_at = datetime.now()
     else:
         setting = models.AppSettings(key=key, value=payload.value)
         db.add(setting)

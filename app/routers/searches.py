@@ -78,7 +78,7 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
 
         run.status = "success"
         run.results_count = len(new_articles)
-        run.finished_at = datetime.utcnow()
+        run.finished_at = datetime.now()
         run.tokens_input  = telemetry.get("tokens_input")
         run.tokens_output = telemetry.get("tokens_output")
         run.api_calls     = telemetry.get("api_calls")
@@ -89,7 +89,7 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
                 ti / 1_000_000 * _PRICE_INPUT_PER_M +
                 to / 1_000_000 * _PRICE_OUTPUT_PER_M
             )
-        topic.last_run_at = datetime.utcnow()
+        topic.last_run_at = datetime.now()
         db.commit()
         db.refresh(run)
 
@@ -150,7 +150,7 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
     except Exception as e:
         run.status = "error"
         run.error_message = str(e)
-        run.finished_at = datetime.utcnow()
+        run.finished_at = datetime.now()
         db.commit()
         elapsed = time.perf_counter() - t0
         logger.error(f"╚═ Run #{run.id} ERROR | {elapsed:.1f}s | {e}")
