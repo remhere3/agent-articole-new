@@ -136,17 +136,26 @@ async def search_articles(
             raise
 
     elapsed = time.perf_counter() - t0
-    n_searches = sum(1 for b in response.content if getattr(b, "type", "") == "tool_use")
-    input_tokens = getattr(response.usage, "input_tokens", None)
+    input_tokens  = getattr(response.usage, "input_tokens", None)
     output_tokens = getattr(response.usage, "output_tokens", None)
+
+    # web_search_20250305 este server-side tool — blocurile pot fi tool_use, server_tool_use
+    # sau web_search_tool_result; numaram orice bloc legat de cautare
+    block_types = [getattr(b, "type", "?") for b in response.content]
+    n_searches = sum(
+        1 for t in block_types
+        if "tool_use" in t or "web_search" in t
+    )
+    logger.info(f"[Anthropic] Blocuri raspuns: {block_types}")
+
     if telemetry is not None:
         telemetry["tokens_input"]  = input_tokens
         telemetry["tokens_output"] = output_tokens
         telemetry["api_calls"]     = n_searches
     if response.stop_reason == "max_tokens":
         logger.warning(
-            f"[Anthropic] ATENTIE: stop_reason=max_tokens — raspunsul a fost trunchiat! "
-            f"JSON-ul poate fi incomplet. Considera cresterea max_tokens."
+            f"[Anthropic] ATENTIE: stop_reason=max_tokens — raspunsul trunchiat! "
+            f"Considera cresterea max_tokens."
         )
     logger.info(
         f"[Anthropic] Raspuns primit in {elapsed:.1f}s | stop={response.stop_reason} "
