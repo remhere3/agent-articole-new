@@ -154,8 +154,40 @@ async def search_articles(
         f"| web_search x{n_searches} | tokens in={input_tokens} out={output_tokens}"
     )
 
-    final_text = next((b.text for b in reversed(response.content) if hasattr(b, "text")), "")
+    # Colecteaza TOATE textele din raspuns (nu doar ultimul)
+    all_texts = [b.text for b in response.content if hasattr(b, "text") and b.text.strip()]
+    final_text = all_texts[-1] if all_texts else ""
     logger.info(f"[Anthropic] Lungime text final: {len(final_text)} chars | preview: {final_text[:150].replace(chr(10), ' ')!r}")
+
+    if not final_text:
+        # Niciun bloc de text — modelul s-a oprit dupa tool_use fara sinteza finala
+        logger.warning(f"[Anthropic] Raspuns fara text final (stop={response.stop_reason}). Trimit synthesis call...")
+        try:
+            # Reconstruim contextul cu toate cautarile efectuate
+            tool_results_summary = []
+            for b in response.content:
+                if getattr(b, "type", "") == "tool_result":
+                    content = getattr(b, "content", "")
+                    if isinstance(content, list):
+                        content = " ".join(getattr(c, "text", "") for c in content if hasattr(c, "text"))
+                    tool_results_summary.append(str(content)[:1000])
+            context = "\n---\n".join(tool_results_summary) or "No search results available."
+            synth_prompt = (
+                f"Based on these web search results about '{keywords}', "
+                f"output ONLY a JSON array of articles published after {cutoff_date}. "
+                f"No prose, just the JSON array.\n\nSearch results:\n{context[:5000]}"
+            )
+            synth_response = await asyncio.to_thread(
+                client.messages.create,
+                model=model,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": synth_prompt}],
+            )
+            final_text = next((b.text for b in synth_response.content if hasattr(b, "text")), "")
+            logger.info(f"[Anthropic] Synthesis call returnat {len(final_text)} chars")
+        except Exception as e:
+            logger.warning(f"[Anthropic] Synthesis call esuat: {e}")
+
     raw = _extract_json(final_text)
     if not raw and final_text.strip() and not final_text.strip().startswith("["):
         # Modelul a returnat proza in loc de JSON — al doilea apel pentru reformatare
@@ -183,7 +215,7 @@ async def search_articles(
             logger.warning(f"[Anthropic] Reformatting call esuat: {e}")
             logger.warning(f"[Anthropic] Text original:\n{final_text[:800]}")
     elif not raw:
-        logger.warning(f"[Anthropic] JSON extraction a returnat 0 articole. Text complet:\n{final_text[:800]}")
+        logger.warning(f"[Anthropic] JSON extraction a returnat 0 articole. Text:\n{final_text[:400]}")
     else:
         logger.info(f"[Anthropic] JSON parsat: {len(raw)} articole brute")
 

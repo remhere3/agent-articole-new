@@ -556,17 +556,17 @@ function toggleLogs() {
     panel.classList.remove('log-panel-closed');
     panel.classList.add('log-panel-open');
     fab.classList.add('active');
-    // Reseteaza badge
     _unreadLogs = 0;
-    const badge = document.getElementById('log-fab-badge');
-    badge.classList.remove('visible');
-    _startLogStream();
+    document.getElementById('log-fab-badge').classList.remove('visible');
+    // Scroll la ultimul log cand se deschide
+    const body = document.getElementById('log-body');
+    body.scrollTop = body.scrollHeight;
   } else {
     panel.classList.remove('log-panel-open');
     panel.classList.add('log-panel-closed');
     fab.classList.remove('active');
-    _stopLogStream();
   }
+  // Stream-ul ramane mereu activ — nu se opreste la inchiderea panoului
 }
 
 function _startLogStream() {
@@ -583,15 +583,14 @@ function _startLogStream() {
   };
 
   _logSource.onmessage = (e) => {
-    if (e.data.startsWith(':')) return;  // keepalive
     _appendLog(e.data);
   };
 
   _logSource.onerror = () => {
-    status.textContent = 'eroare';
-    status.className = 'badge bg-danger';
-    _stopLogStream();
-    if (_logOpen) setTimeout(_startLogStream, 3000);
+    status.textContent = 'reconectare...';
+    status.className = 'badge bg-warning';
+    if (_logSource) { _logSource.close(); _logSource = null; }
+    setTimeout(_startLogStream, 3000);  // reconecteaza intotdeauna
   };
 }
 
@@ -817,5 +816,6 @@ function exportArticles(format) {
 document.addEventListener('DOMContentLoaded', () => {
   showSection('dashboard');
   loadFooterStatus();
-  setInterval(loadFooterStatus, 30000); // refresh la 30s
+  setInterval(loadFooterStatus, 30000);
+  _startLogStream();  // stream intotdeauna activ, indiferent de starea panoului
 });
