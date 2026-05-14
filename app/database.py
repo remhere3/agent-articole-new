@@ -20,41 +20,30 @@ def get_db():
 
 
 def init_db():
-    from app import models  # noqa: F401
-    # Creeaza tabelele noi (idempotent — nu modifica tabelele existente)
-    Base.metadata.create_all(bind=engine)
-    # Aplica migrarile Alembic (adauga coloane noi, constrangeri etc.)
-    _run_alembic_upgrade()
-
-
-def _run_alembic_upgrade():
-    """Ruleaza 'alembic upgrade head' programatic pentru a aplica migrarile."""
     import logging
-    from pathlib import Path
-    from alembic.config import Config
-    from alembic import command
-    from sqlalchemy import inspect, text
-
+    from app import models  # noqa: F401
     logger = logging.getLogger(__name__)
+    Base.metadata.create_all(bind=engine)
+    _ensure_columns()
+    logger.info("Database initialized")
 
-    alembic_cfg = Config(str(Path(__file__).parent.parent / "alembic.ini"))
 
+def _ensure_columns():
+    """Adauga coloanele noi daca nu exista (idempotent, fara Alembic)."""
+    from sqlalchemy import text
+    migrations = [
+        ("topics",       "timeout_seconds",     "INTEGER DEFAULT 300"),
+        ("topics",       "periodicity_hours",    "REAL DEFAULT 24.0"),
+        ("topics",       "user_question",        "TEXT"),
+        ("search_runs",  "tokens_input",         "INTEGER"),
+        ("search_runs",  "tokens_output",        "INTEGER"),
+        ("search_runs",  "api_calls",            "INTEGER"),
+        ("search_runs",  "estimated_cost_usd",   "REAL"),
+    ]
     with engine.connect() as conn:
-        inspector = inspect(conn)
-        has_alembic_version = "alembic_version" in inspector.get_table_names()
-        has_topics = "topics" in inspector.get_table_names()
-
-        if not has_alembic_version and has_topics:
-            # DB existent fara Alembic — stamp la baseline
-            conn.commit()
-            command.stamp(alembic_cfg, "baseline")
-            logger.info("DB existent detectat — stamped la baseline Alembic")
-
-    try:
-        command.upgrade(alembic_cfg, "head")
-        # SQLite non-transactional DDL poate lasa version la revision anterioara;
-        # stampam explicit la head dupa un upgrade reusit.
-        command.stamp(alembic_cfg, "head")
-        logger.info("Alembic upgrade head — OK")
-    except Exception as e:
-        logger.warning(f"Alembic upgrade warning: {e}")
+        for table, col, col_def in migrations:
+            rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+            existing = {r[1] for r in rows}
+            if col not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}"))
+        conn.commit()
