@@ -175,14 +175,14 @@ body {
         <tr><td><strong>Intrebare libera</strong></td><td>Campul <code>user_question</code> permite adresarea unei intrebari in limbaj natural (protejat anti-prompt-injection)</td></tr>
         <tr><td><strong>3 provideri</strong></td><td>Anthropic Claude, Tavily, Ollama+Tavily (local)</td></tr>
         <tr><td><strong>Scheduler automat</strong></td><td>APScheduler verifica la 15 min si ruleaza topicurile scadente; timeout configurabil per topic</td></tr>
-        <tr><td><strong>Deduplicare cross-run</strong></td><td>Articolele deja gasite intr-o cautare anterioara nu se mai salveaza din nou (UNIQUE topic_id+url)</td></tr>
+        <tr><td><strong>Toate rezultatele per run</strong></td><td>Fiecare cautare salveaza toate articolele gasite; filtrarea se face doar dupa data publicarii (<code>days_back</code>), nu dupa rularile anterioare</td></tr>
         <tr><td><strong>Cost estimat</strong></td><td>Fiecare run Anthropic calculeaza costul in USD bazat pe tokens input/output ($3/$15 per million)</td></tr>
         <tr><td><strong>Rate limiting</strong></td><td>Trigger manual: cooldown 60s per topic, returneaza HTTP 429 daca e prea devreme</td></tr>
         <tr><td><strong>Export articole</strong></td><td><code>GET /api/searches/results/export?format=csv|json</code> — fara limita artificiala</td></tr>
         <tr><td><strong>Preview email</strong></td><td><code>GET /api/searches/runs/{id}/preview-email</code> — vizualizeaza raportul inainte de trimitere</td></tr>
         <tr><td><strong>Validare provider</strong></td><td><code>GET /api/searches/validate-provider/{provider}</code> — testeaza conectivitatea live</td></tr>
         <tr><td><strong>Rapoarte email</strong></td><td>HTML formatat, trimis catre utilizatorii abonati dupa fiecare cautare</td></tr>
-        <tr><td><strong>Log-uri live</strong></td><td>SSE stream la <code>/api/logs/stream</code>, vizibil din interfata</td></tr>
+        <tr><td><strong>Log-uri live</strong></td><td>SSE stream permanent la <code>/api/logs/stream</code>; buton FAB flotant stanga-jos in UI, cu badge de mesaje necitite si panou detaliat colorat</td></tr>
         <tr><td><strong>Timezone</strong></td><td>Toate timestamp-urile sunt in <strong>Europe/Bucharest</strong> — afisate corect in UI si in emailuri</td></tr>
         <tr><td><strong>Tab Articole</strong></td><td>Vizualizare flat a tuturor articolelor, cu cautare client-side, deduplicare URL si export direct din UI</td></tr>
       </tbody>
@@ -1285,8 +1285,8 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
       <tbody>
         <tr>
           <td>1</td>
-          <td><strong>Deduplicare cross-run</strong> — constraint <code>UNIQUE(topic_id, url)</code> pe <code>search_results</code></td>
-          <td>Articolele deja gasite nu se mai salveaza din nou in rulari ulterioare; baza de date creste mai putin</td>
+          <td><strong>Rezultate complete per run</strong> — fiecare rulare salveaza toate articolele gasite; filtrare exclusiv dupa <code>days_back</code></td>
+          <td>Nu se mai pierd articole din cauza deduplicarii cross-run; poti compara rezultatele intre rulari</td>
         </tr>
         <tr>
           <td>2</td>
@@ -1305,8 +1305,8 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
         </tr>
         <tr>
           <td>5</td>
-          <td><strong>Migrari Alembic</strong> — inlocuit <code>_migrate_add_columns()</code> cu migrari formale Alembic (<code>alembic upgrade head</code> la pornire)</td>
-          <td>Modificarile la schema DB sunt versionare si reproductibile; nu mai e nevoie de migrari ad-hoc</td>
+          <td><strong>Migrare schema fara Alembic</strong> — <code>_ensure_columns()</code> verifica si adauga coloane noi via <code>PRAGMA table_info</code> + <code>ALTER TABLE</code></td>
+          <td>Migrare idempotenta la pornire, fara a reseta configuratia de logging (problema cauzata de Alembic's <code>fileConfig</code>)</td>
         </tr>
         <tr>
           <td>6</td>
@@ -1333,14 +1333,26 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
           <td><strong>Export articole</strong> — <code>GET /api/searches/results/export?format=csv|json</code></td>
           <td>Export complet fara limita de paginare, filtrat optional pe topic; util pentru analize externe</td>
         </tr>
+        <tr>
+          <td>11</td>
+          <td><strong>Robustete prompt Anthropic</strong> — prompt simplificat (fara sectiuni all-caps care declansau reasoning-ul), traducere automata a topicului in engleza, fallback synthesis call daca modelul nu genereaza text final, fallback reformatting call daca returneaza proza in loc de JSON</td>
+          <td>Cautarile cu topicuri in romana sau cu subiecte niche returneaza articole in loc de <code>[]</code></td>
+        </tr>
       </tbody>
     </table>
 
     <div style="background:rgba(0,68,170,.06);border:1px solid rgba(0,68,170,.18);border-left:3px solid #0044aa;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
       <strong style="color:#0044aa;"><i class="bi bi-database-gear me-1"></i>Migrare DB automata</strong> —
-      La prima pornire dupa upgrade, Alembic detecteaza schema existenta, o stampileaza ca <em>baseline</em> si aplica
-      automat coloanele noi (<code>timeout_seconds</code>, <code>estimated_cost_usd</code>) si constrangerea UNIQUE.
-      Nu e nevoie de actiuni manuale.
+      La fiecare pornire, <code>_ensure_columns()</code> verifica via <code>PRAGMA table_info</code> daca coloanele noi exista
+      (<code>timeout_seconds</code>, <code>estimated_cost_usd</code>, <code>tokens_input</code>, <code>tokens_output</code>, <code>api_calls</code>)
+      si le adauga daca lipsesc. Operatia e idempotenta si nu modifica date existente. Nu e nevoie de Alembic sau de actiuni manuale.
+    </div>
+
+    <div style="background:rgba(0,0,0,.04);border:1px solid var(--d-border);border-left:3px solid #6b7280;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
+      <strong style="color:#374151;"><i class="bi bi-terminal me-1"></i>Log-uri SSE intotdeauna active</strong> —
+      Stream-ul SSE porneste automat la incarcarea paginii (nu doar la deschiderea panoului de log-uri).
+      Apasa butonul <strong>FAB terminal</strong> din stanga-jos pentru a deschide/inchide panoul —
+      inchiderea nu opreste stream-ul. Badge-ul rosu arata numarul de mesaje noi necitite.
     </div>
 
   </div>
