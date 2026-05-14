@@ -51,18 +51,7 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
     try:
         articles = await _dispatch_search(topic, telemetry)
 
-        # Deduplicare cross-run: exclude articole deja salvate pentru acest topic
-        existing_urls = {
-            r[0] for r in db.query(models.SearchResult.url)
-            .filter(models.SearchResult.topic_id == topic_id)
-            .all()
-        }
-        new_articles = [a for a in articles if a.get("url") not in existing_urls]
-        skipped = len(articles) - len(new_articles)
-        if skipped:
-            logger.info(f"  → Dedup: {skipped} articole deja existente omise, {len(new_articles)} noi")
-
-        for a in new_articles:
+        for a in articles:
             result = models.SearchResult(
                 topic_id=topic_id,
                 run_id=run.id,
@@ -77,7 +66,7 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
             db.add(result)
 
         run.status = "success"
-        run.results_count = len(new_articles)
+        run.results_count = len(articles)
         run.finished_at = datetime.now()
         run.tokens_input  = telemetry.get("tokens_input")
         run.tokens_output = telemetry.get("tokens_output")
@@ -117,7 +106,7 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
             )
 
         # Trimite email daca e configurat
-        if topic.send_email and topic.users and new_articles:
+        if topic.send_email and topic.users and articles:
             from app.services.email_service import send_report
             active_emails = [u.email for u in topic.users if u.active]
             if active_emails:
@@ -132,7 +121,7 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
                     }
                     for r in run.results
                 ]
-                telemetry = _build_telemetry(topic, new_articles, elapsed)
+                telemetry = _build_telemetry(topic, articles, elapsed)
                 telemetry["estimated_cost_usd"] = run.estimated_cost_usd
                 logger.info(f"  → Trimit email catre: {active_emails}")
                 await send_report(

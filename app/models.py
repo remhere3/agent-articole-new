@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Text,
-    ForeignKey, Table, Float, UniqueConstraint
+    ForeignKey, Table, Float
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -50,9 +50,6 @@ class Topic(Base):
 
 class SearchResult(Base):
     __tablename__ = "search_results"
-    __table_args__ = (
-        UniqueConstraint("topic_id", "url", name="uq_result_topic_url"),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
