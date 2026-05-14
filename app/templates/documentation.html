@@ -183,6 +183,7 @@ body {
         <tr><td><strong>Validare provider</strong></td><td><code>GET /api/searches/validate-provider/{provider}</code> — testeaza conectivitatea live</td></tr>
         <tr><td><strong>Rapoarte email</strong></td><td>HTML formatat, trimis catre utilizatorii abonati dupa fiecare cautare</td></tr>
         <tr><td><strong>Log-uri live</strong></td><td>SSE stream la <code>/api/logs/stream</code>, vizibil din interfata</td></tr>
+        <tr><td><strong>Timezone</strong></td><td>Toate timestamp-urile sunt in <strong>Europe/Bucharest</strong> — afisate corect in UI si in emailuri</td></tr>
         <tr><td><strong>Tab Articole</strong></td><td>Vizualizare flat a tuturor articolelor, cu cautare client-side, deduplicare URL si export direct din UI</td></tr>
       </tbody>
     </table>
@@ -1186,6 +1187,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
 
     <div style="margin-top:1rem">
       <strong>Raspuns SearchRunOut:</strong>
+      <span style="font-size:.78rem;color:var(--d-muted);margin-left:.5rem;"><i class="bi bi-clock me-1"></i>toate timestamp-urile sunt in <strong>Europe/Bucharest</strong></span>
       <div class="d-response-box">{
   "id": 5,
   "topic_id": 1,

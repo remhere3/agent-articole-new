@@ -2,7 +2,8 @@
 
 **URL de baza:** `http://localhost:8007`  
 **Swagger interactiv:** `http://localhost:8007/docs`  
-**Interfata HTML:** `http://localhost:8007/`
+**Interfata HTML:** `http://localhost:8007/`  
+**Timezone:** toate timestamp-urile (`started_at`, `finished_at`, `found_at`, `created_at`, `last_run_at`) sunt in **Europe/Bucharest**
 
 ---
 
