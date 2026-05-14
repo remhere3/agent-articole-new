@@ -21,9 +21,6 @@
       <button class="btn btn-outline-light btn-sm" onclick="showSection('dashboard')">
         <i class="bi bi-speedometer2 me-1"></i>Dashboard
       </button>
-      <button class="btn btn-outline-light btn-sm ms-2" onclick="toggleLogs()" id="btn-logs" title="Deschide/inchide fereastra de log-uri">
-        <i class="bi bi-terminal me-1"></i>Logs
-      </button>
     </div>
   </div>
 </nav>
@@ -316,16 +313,22 @@
 }
 </style>
 
+<!-- ── LOG FAB ─────────────────────────────────────────────────────────── -->
+<button id="log-fab" class="log-fab" onclick="toggleLogs()" title="Log-uri agent (click pentru deschidere/inchidere)">
+  <i class="bi bi-terminal"></i>
+  <span id="log-fab-badge" class="log-fab-badge">0</span>
+</button>
+
 <!-- ── LOG PANEL ─────────────────────────────────────────────────────────── -->
 <div id="log-panel" class="log-panel log-panel-closed">
   <div class="log-panel-header">
-    <span><i class="bi bi-terminal me-2"></i>Log-uri agent</span>
+    <span><i class="bi bi-terminal me-2" style="color:#60a5fa"></i>Log-uri agent</span>
     <div class="d-flex gap-2 align-items-center">
-      <span id="log-status" class="badge bg-secondary">deconectat</span>
-      <button class="btn btn-sm btn-outline-secondary py-0" onclick="clearLogs()" title="Sterge log-urile">
-        <i class="bi bi-trash"></i>
+      <span id="log-status" class="badge bg-secondary" style="font-family:'Inconsolata',monospace;font-size:10px;">deconectat</span>
+      <button class="btn btn-sm py-0 px-1" style="color:rgba(255,255,255,.45);background:none;border:none" onclick="clearLogs()" title="Sterge log-urile">
+        <i class="bi bi-trash3"></i>
       </button>
-      <button class="btn btn-sm btn-outline-secondary py-0" onclick="toggleLogs()" title="Inchide">
+      <button class="btn btn-sm py-0 px-1" style="color:rgba(255,255,255,.45);background:none;border:none" onclick="toggleLogs()" title="Inchide">
         <i class="bi bi-x-lg"></i>
       </button>
     </div>

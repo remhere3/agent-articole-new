@@ -543,22 +543,28 @@ function esc(str) {
 }
 
 /* ── Log panel ───────────────────────────────────────────────────────── */
-let _logSource = null;
-let _logOpen = false;
+let _logSource  = null;
+let _logOpen    = false;
+let _unreadLogs = 0;
 
 function toggleLogs() {
   const panel = document.getElementById('log-panel');
+  const fab   = document.getElementById('log-fab');
   _logOpen = !_logOpen;
 
   if (_logOpen) {
     panel.classList.remove('log-panel-closed');
     panel.classList.add('log-panel-open');
-    document.getElementById('btn-logs').classList.add('active');
+    fab.classList.add('active');
+    // Reseteaza badge
+    _unreadLogs = 0;
+    const badge = document.getElementById('log-fab-badge');
+    badge.classList.remove('visible');
     _startLogStream();
   } else {
     panel.classList.remove('log-panel-open');
     panel.classList.add('log-panel-closed');
-    document.getElementById('btn-logs').classList.remove('active');
+    fab.classList.remove('active');
     _stopLogStream();
   }
 }
@@ -572,7 +578,7 @@ function _startLogStream() {
   _logSource = new EventSource('/api/logs/stream');
 
   _logSource.onopen = () => {
-    status.textContent = 'live';
+    status.textContent = '● live';
     status.className = 'badge bg-success';
   };
 
@@ -585,16 +591,12 @@ function _startLogStream() {
     status.textContent = 'eroare';
     status.className = 'badge bg-danger';
     _stopLogStream();
-    // Reconecteaza dupa 3s daca panoul e inca deschis
     if (_logOpen) setTimeout(_startLogStream, 3000);
   };
 }
 
 function _stopLogStream() {
-  if (_logSource) {
-    _logSource.close();
-    _logSource = null;
-  }
+  if (_logSource) { _logSource.close(); _logSource = null; }
   const status = document.getElementById('log-status');
   status.textContent = 'deconectat';
   status.className = 'badge bg-secondary';
@@ -602,30 +604,75 @@ function _stopLogStream() {
 
 function _appendLog(line) {
   const body = document.getElementById('log-body');
-  const div = document.createElement('div');
-  div.className = 'log-line ' + _logLineClass(line);
-  div.textContent = line;
+  const div  = document.createElement('div');
+  div.className = 'log-line';
+  div.innerHTML = _colorizeLog(line);
   body.appendChild(div);
 
-  // Pastreaza maxim 1000 linii in DOM
-  while (body.children.length > 1000) body.removeChild(body.firstChild);
+  // Pastreaza maxim 1500 linii in DOM
+  while (body.children.length > 1500) body.removeChild(body.firstChild);
 
-  // Auto-scroll la ultima linie
-  body.scrollTop = body.scrollHeight;
+  // Auto-scroll numai daca utilizatorul e la baza
+  const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+  if (atBottom) body.scrollTop = body.scrollHeight;
+
+  // Badge + pulse FAB cand panoul e inchis
+  if (!_logOpen) {
+    _unreadLogs++;
+    const badge = document.getElementById('log-fab-badge');
+    badge.textContent = _unreadLogs > 99 ? '99+' : _unreadLogs;
+    badge.classList.add('visible');
+    const fab = document.getElementById('log-fab');
+    fab.classList.remove('pulse');
+    void fab.offsetWidth;  // reflow pentru restart animatie
+    fab.classList.add('pulse');
+  }
 }
 
-function _logLineClass(line) {
-  if (line.includes('╔═') || line.includes('START'))   return 'log-line-run-start';
-  if (line.includes('╚═') || line.includes('SUCCESS')) return 'log-line-run-end';
-  if (line.includes('[ERROR]'))   return 'log-line-ERROR';
-  if (line.includes('[WARNING]')) return 'log-line-WARNING';
-  if (line.includes('[DEBUG]'))   return 'log-line-DEBUG';
-  if (line.includes('[INFO]'))    return 'log-line-INFO';
-  return 'log-line-other';
+function _colorizeLog(raw) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Format backend: "HH:MM:SS [LEVEL] module.name: message"
+  const m = raw.match(/^(\d{2}:\d{2}:\d{2})\s+\[(\w+)\]\s+([^:]+):\s*([\s\S]*)$/);
+  if (!m) return `<span style="color:#6b7280">${esc(raw)}</span>`;
+
+  const [, ts, level, mod, msg] = m;
+
+  const lvlColor = {
+    INFO:'#9cdcfe', WARNING:'#dcdcaa', ERROR:'#f48771',
+    DEBUG:'#6a9955', CRITICAL:'#ff6b6b'
+  }[level] || '#d4d4d4';
+
+  // Culoare mesaj in functie de continut
+  let msgColor = '#d4d4d4';
+  if (msg.includes('╔═') || msg.includes('START'))    msgColor = '#4ec9b0';
+  else if (msg.includes('╚═'))                        msgColor = '#c586c0';
+  else if (msg.includes('SUCCESS'))                   msgColor = '#86efac';
+  else if (level === 'ERROR' || msg.includes('ERROR'))msgColor = '#f48771';
+  else if (level === 'WARNING')                       msgColor = '#dcdcaa';
+  else if (msg.startsWith('  →') || msg.startsWith('→')) msgColor = '#e9d5ff';
+  else if (msg.includes('[Anthropic]'))               msgColor = '#93c5fd';
+  else if (msg.includes('[Tavily]'))                  msgColor = '#fde68a';
+  else if (msg.includes('[Ollama'))                   msgColor = '#86efac';
+
+  // Highlight dinamic: timpi, run-uri, numere articole
+  const hlMsg = esc(msg)
+    .replace(/(\d+\.\d+s)/g,         '<b style="color:#fbbf24">$1</b>')
+    .replace(/(Run #\d+)/g,          '<b style="color:#60a5fa">$1</b>')
+    .replace(/(\d+) articole/g,      '<b style="color:#a5f3c8">$1 articole</b>')
+    .replace(/(╔═[^\n]*)/g,          '<b>$1</b>')
+    .replace(/(╚═[^\n]*)/g,          '<b>$1</b>');
+
+  return `<span style="color:#374151">${esc(ts)}</span> ` +
+         `<span style="color:${lvlColor};font-weight:600">[${level}]</span> ` +
+         `<span style="color:#4b5563">${esc(mod)}:</span> ` +
+         `<span style="color:${msgColor}">${hlMsg}</span>`;
 }
 
 function clearLogs() {
   document.getElementById('log-body').innerHTML = '';
+  _unreadLogs = 0;
+  document.getElementById('log-fab-badge').classList.remove('visible');
 }
 
 /* ── Footer status ───────────────────────────────────────────────────── */
