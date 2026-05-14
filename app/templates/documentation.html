@@ -906,6 +906,18 @@ TOPICS = [
       </table>
     </div>
 
+    <!-- De ce rezultatele difera intre rulari -->
+    <div style="background:rgba(0,68,170,.06);border:1px solid rgba(0,68,170,.2);border-left:4px solid #0044aa;border-radius:.4rem;padding:.75rem 1rem;">
+      <strong style="color:#0044aa;font-size:.9rem;"><i class="bi bi-shuffle me-1"></i>De ce 2 rulari succesive nu returneaza aceleasi rezultate?</strong>
+      <p style="margin:.5rem 0 .4rem;font-size:.85rem;">Acest comportament este <strong>normal si intentionat</strong>. Exista trei cauze:</p>
+      <ol style="font-size:.84rem;margin:0 0 .6rem;padding-left:1.4rem;line-height:1.8;">
+        <li><strong>Cautarile web sunt live si non-deterministe</strong> — fiecare run face cereri reale catre motoare de cautare. Rankingul se schimba, articole noi apar, cache-ul difera de la un apel la altul.</li>
+        <li><strong>Modelul LLM are variabilitate</strong> — Claude decide singur ce interogari sa lanseze si ce articole sa includa. Cu <code>temperature &gt; 0</code> (implicit), aceleasi instructiuni pot genera strategii de cautare usor diferite la fiecare rulare.</li>
+        <li><strong>Filtrarea dupa data taie diferit la margine</strong> — articolele publicate exact la limita ferestrei <code>days_back</code> pot fi incluse sau excluse in functie de ora rularii sau de cum modelul interpreteaza data.</li>
+      </ol>
+      <p style="margin:0;font-size:.84rem;"><strong>Recomandare:</strong> foloseste <code>days_back</code> mai mare (30–60 zile) pentru a mentine articolele importante in fereastra pe mai multe rulari. Rularea zilnica (nu la minute distanta) este comportamentul optim — prinde articolele noi fara zgomot.</p>
+    </div>
+
   </div>
 </div>
 </section>
