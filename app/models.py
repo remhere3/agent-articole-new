@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Text,
-    ForeignKey, Table, Float
+    ForeignKey, Table, Float, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -36,11 +36,8 @@ class Topic(Base):
     user_question = Column(Text, nullable=True)      # intrebarea libera a utilizatorului
     days_back = Column(Integer, default=7)            # only articles from last N days
     periodicity_hours = Column(Float, default=24.0)  # run every N hours
+    timeout_seconds = Column(Integer, default=300)    # max seconds per search run
     provider = Column(String(50), default="anthropic")  # anthropic | tavily | ollama
-    fallback_provider = Column(String(50), nullable=True)   # anthropic | tavily | ollama
-    run_at_time = Column(String(5), nullable=True)           # "HH:MM" UTC, ex: "07:00"
-    email_mode = Column(String(20), default="immediate")    # immediate | daily_digest
-    deduplicate = Column(Boolean, default=True)              # skip articles already stored for this topic
     active = Column(Boolean, default=True)
     send_email = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -53,9 +50,12 @@ class Topic(Base):
 
 class SearchResult(Base):
     __tablename__ = "search_results"
+    __table_args__ = (
+        UniqueConstraint("topic_id", "url", name="uq_result_topic_url"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False, index=True)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
     run_id = Column(Integer, ForeignKey("search_runs.id"), nullable=True)
     title = Column(Text, nullable=False)
     url = Column(Text, nullable=False)
@@ -64,8 +64,7 @@ class SearchResult(Base):
     published_date = Column(String(50), nullable=True)
     summary = Column(Text, nullable=True)
     provider = Column(String(50), nullable=True)
-    relevance_score = Column(Float, nullable=True)           # 1-10
-    found_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    found_at = Column(DateTime(timezone=True), server_default=func.now())
 
     topic = relationship("Topic", back_populates="results")
     run = relationship("SearchRun", back_populates="results")
@@ -75,7 +74,7 @@ class SearchRun(Base):
     __tablename__ = "search_runs"
 
     id = Column(Integer, primary_key=True, index=True)
-    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False, index=True)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     finished_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(50), default="running")  # running | success | error
@@ -86,6 +85,7 @@ class SearchRun(Base):
     tokens_input  = Column(Integer, nullable=True)
     tokens_output = Column(Integer, nullable=True)
     api_calls     = Column(Integer, nullable=True)  # web_search apeluri (anthropic) / cereri Tavily
+    estimated_cost_usd = Column(Float, nullable=True)
 
     topic = relationship("Topic", back_populates="runs")
     results = relationship("SearchResult", back_populates="run", cascade="all, delete-orphan")

@@ -17,38 +17,6 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _tavily_date_warning(provider: str, articles: list, days_back: int) -> str:
-    """Afiseaza un avertisment daca providerul e Tavily/Ollama si exista articole fara data publicare."""
-    if provider not in ("tavily", "ollama"):
-        return ""
-    no_date = sum(1 for a in articles if not a.get("published_date"))
-    if no_date == 0:
-        return ""
-    return f"""
-    <div style="background:#fff8e1;border:1px solid #f9a825;border-radius:5px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#5d4037;">
-      <strong>⚠ Atentie:</strong> {no_date} din {len(articles)} articole nu au dată de publicare confirmată.
-      Tavily nu garantează filtrarea strictă după dată — este posibil ca unele dintre acestea
-      să fie mai vechi de {days_back} de zile. Verificați data înainte de a le utiliza.
-    </div>"""
-
-
-def _tokens_row(tokens_input: Optional[int], tokens_output: Optional[int], cache_read: Optional[int]) -> str:
-    if tokens_input is None and tokens_output is None:
-        return ""
-    parts = []
-    if tokens_input is not None:
-        parts.append(f"in={tokens_input:,}")
-    if tokens_output is not None:
-        parts.append(f"out={tokens_output:,}")
-    if cache_read:
-        parts.append(f"cache_hit={cache_read:,}")
-    return f"""
-      <tr>
-        <td style="padding:5px 10px;color:#555;font-size:13px;white-space:nowrap;">Tokens</td>
-        <td style="padding:5px 10px;font-size:13px;font-family:monospace;">{" &nbsp;·&nbsp; ".join(parts)}</td>
-      </tr>"""
-
-
 def _build_html_report(
     topic_name: str,
     keywords: Optional[str],
@@ -85,15 +53,21 @@ def _build_html_report(
     provider    = t.get("provider", "—")
     model       = t.get("model", "—")
     web_search  = t.get("web_search", "—")
-    elapsed_s     = t.get("elapsed_s")
-    elapsed_str   = f"{elapsed_s:.1f}s" if elapsed_s is not None else "—"
-    found_total   = t.get("found_total", len(articles))
-    excluded      = t.get("excluded", 0)
-    tokens_input  = t.get("tokens_input")
-    tokens_output = t.get("tokens_output")
-    cache_read    = t.get("cache_read")
+    elapsed_s   = t.get("elapsed_s")
+    elapsed_str = f"{elapsed_s:.1f}s" if elapsed_s is not None else "—"
+    found_total = t.get("found_total", len(articles))
+    excluded    = t.get("excluded", 0)
 
     provider_color = {"anthropic": "#0044aa", "tavily": "#c45c00", "ollama": "#1a6b4a"}.get(provider, "#555")
+
+    cost_usd = t.get("estimated_cost_usd")
+    cost_row = ""
+    if cost_usd is not None:
+        cost_row = f"""
+        <tr>
+          <td style="padding:5px 10px;color:#555;font-size:13px;white-space:nowrap;">Cost estimat</td>
+          <td style="padding:5px 10px;font-size:13px;font-family:monospace;">${cost_usd:.4f} USD</td>
+        </tr>"""
 
     question_row = ""
     if user_question:
@@ -141,8 +115,8 @@ def _build_html_report(
         <td style="padding:5px 10px;color:#555;font-size:13px;white-space:nowrap;">Durata cautare</td>
         <td style="padding:5px 10px;font-size:13px;">{elapsed_str}</td>
       </tr>
-      {_tokens_row(tokens_input, tokens_output, cache_read)}
-      <tr style="background:#fff;">
+      {cost_row}
+      <tr>
         <td style="padding:5px 10px;color:#555;font-size:13px;white-space:nowrap;">Run ID</td>
         <td style="padding:5px 10px;font-size:13px;font-family:monospace;">#{run_id} &nbsp;·&nbsp; {datetime.now(_BUCHAREST).strftime("%d.%m.%Y %H:%M")}</td>
       </tr>
@@ -160,7 +134,6 @@ def _build_html_report(
     </p>
   </div>
   {telemetry_block}
-  {_tavily_date_warning(provider, articles, days_back)}
   <div style="padding:16px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;">
     <p style="margin:0 0 12px 0;font-size:14px;color:#555;">
       <strong>{len(articles)}</strong> articole gasite in ultimele <strong>{days_back}</strong> zile

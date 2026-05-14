@@ -141,8 +141,7 @@ body {
     <a href="#api-users">API Utilizatori</a>
     <a href="#api-topics">API Topicuri</a>
     <a href="#api-searches">API Cautari</a>
-    <a href="#export">Export rezultate</a>
-    <a href="#auth">Autentificare API</a>
+    <a href="#improvements">Imbunatatiri v2</a>
     <a href="#examples">Exemple complete</a>
     <a href="#email">Email SMTP</a>
     <a href="#ntfy">Notificari ntfy</a>
@@ -173,11 +172,18 @@ body {
       <tbody>
         <tr><td><strong>Cautare articole</strong></td><td>arXiv, PubMed, Nature, Science, IEEE, ACM, bioRxiv, medRxiv si altele</td></tr>
         <tr><td><strong>Filtrare stricta data</strong></td><td>Parametru <code>days_back</code> — doar articolele din ultimele N zile</td></tr>
-        <tr><td><strong>Intrebare libera</strong></td><td>Campul <code>user_question</code> permite adresarea unei intrebari in limbaj natural</td></tr>
+        <tr><td><strong>Intrebare libera</strong></td><td>Campul <code>user_question</code> permite adresarea unei intrebari in limbaj natural (protejat anti-prompt-injection)</td></tr>
         <tr><td><strong>3 provideri</strong></td><td>Anthropic Claude, Tavily, Ollama+Tavily (local)</td></tr>
-        <tr><td><strong>Scheduler automat</strong></td><td>APScheduler verifica la 15 min si ruleaza topicurile scadente</td></tr>
+        <tr><td><strong>Scheduler automat</strong></td><td>APScheduler verifica la 15 min si ruleaza topicurile scadente; timeout configurabil per topic</td></tr>
+        <tr><td><strong>Deduplicare cross-run</strong></td><td>Articolele deja gasite intr-o cautare anterioara nu se mai salveaza din nou (UNIQUE topic_id+url)</td></tr>
+        <tr><td><strong>Cost estimat</strong></td><td>Fiecare run Anthropic calculeaza costul in USD bazat pe tokens input/output ($3/$15 per million)</td></tr>
+        <tr><td><strong>Rate limiting</strong></td><td>Trigger manual: cooldown 60s per topic, returneaza HTTP 429 daca e prea devreme</td></tr>
+        <tr><td><strong>Export articole</strong></td><td><code>GET /api/searches/results/export?format=csv|json</code> — fara limita artificiala</td></tr>
+        <tr><td><strong>Preview email</strong></td><td><code>GET /api/searches/runs/{id}/preview-email</code> — vizualizeaza raportul inainte de trimitere</td></tr>
+        <tr><td><strong>Validare provider</strong></td><td><code>GET /api/searches/validate-provider/{provider}</code> — testeaza conectivitatea live</td></tr>
         <tr><td><strong>Rapoarte email</strong></td><td>HTML formatat, trimis catre utilizatorii abonati dupa fiecare cautare</td></tr>
         <tr><td><strong>Log-uri live</strong></td><td>SSE stream la <code>/api/logs/stream</code>, vizibil din interfata</td></tr>
+        <tr><td><strong>Tab Articole</strong></td><td>Vizualizare flat a tuturor articolelor, cu cautare client-side, deduplicare URL si export direct din UI</td></tr>
       </tbody>
     </table>
   </div>
@@ -899,52 +905,6 @@ TOPICS = [
       </table>
     </div>
 
-    <!-- Variabilitate rezultate Anthropic -->
-    <div>
-      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-shuffle me-1"></i>De ce numarul de articole variaza intre run-uri la provider-ul Anthropic?</p>
-
-      <div style="background:rgba(0,68,170,.06);border:1px solid rgba(0,68,170,.18);border-radius:.4rem;padding:.65rem .9rem;font-size:.85rem;margin-bottom:.75rem;">
-        Este normal sa obtii <strong>5 articole la un run si 11 la urmatorul</strong>, chiar cu aceiasi parametri. Exista trei surse de variabilitate, fiecare cu un rol diferit:
-      </div>
-
-      <table class="d-table" style="margin-bottom:.75rem;">
-        <thead><tr><th>Sursa de variabilitate</th><th>Explicatie</th><th>Controlabila?</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><strong>Rezultatele web search</strong></td>
-            <td>Tool-ul <code>web_search_20250305</code> interogheaza internetul live. Indexarea motoarelor de cautare, ordinea rezultatelor si paginile disponibile se schimba intre apeluri — chiar la cateva minute distanta.</td>
-            <td><span style="color:#f87171;">Nu — internetul evolueaza</span></td>
-          </tr>
-          <tr>
-            <td><strong>Deduplicarea</strong></td>
-            <td>Articolele deja stocate pentru un topic sunt sarite. La primul run gasesti 12 articole; la al doilea run aceleasi 12 sunt duplicate si apar 0 noi — desi Claude a cautat la fel de bine.</td>
-            <td><span style="color:#4ade80;">Da — comportament corect</span></td>
-          </tr>
-          <tr>
-            <td><strong>Non-determinismul LLM</strong></td>
-            <td>Modelele LLM pot alege interogari de cautare usor diferite si pot selecta articole diferite din aceleasi rezultate. Rezolvat prin <code>temperature=0</code> — face rationamentul lui Claude reproductibil.</td>
-            <td><span style="color:#4ade80;">Da — deja setat in cod</span></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div style="background:rgba(26,107,74,.07);border:1px solid rgba(26,107,74,.2);border-left:3px solid #1a6b4a;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;margin-bottom:.65rem;">
-        <strong style="color:#1a6b4a;"><i class="bi bi-check2-circle me-1"></i><code>temperature=0</code> — deja activ:</strong>
-        Aplicatia seteaza <code>temperature=0</code> la fiecare apel catre Anthropic. Asta face ca
-        <em>rationamentul lui Claude</em> sa fie reproductibil: aceleasi rezultate web → aceeasi selectie de articole.
-        Variabilitatea ramasa vine exclusiv din rezultatele diferite returnate de motorul de cautare web.
-      </div>
-
-      <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.25);border-left:4px solid #c45c00;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
-        <strong style="color:#c45c00;"><i class="bi bi-lightbulb me-1"></i>Cum interpretezi corect log-urile:</strong>
-        <ul style="margin:.4rem 0 0;padding-left:1.2rem;">
-          <li>Verifica <strong><code>web_search x N</code></strong> in log — daca N &ge; 1, Claude a cautat activ (nu a raspuns din memorie).</li>
-          <li>Un run cu <strong>0 articole noi</strong> dupa deduplicare este un succes, nu o eroare — inseamna ca nu exista publicatii noi fata de run-ul anterior.</li>
-          <li>Daca ai consistent 0 articole <em>inclusiv la primul run</em>, problema e la keywords sau la <code>days_back</code> prea mic — nu la temperatura.</li>
-        </ul>
-      </div>
-    </div>
-
   </div>
 </div>
 </section>
@@ -1035,18 +995,15 @@ httpx.delete(f"{BASE}/users/1")</pre>
       <thead><tr><th>Camp</th><th>Tip</th><th>Default</th><th>Descriere</th></tr></thead>
       <tbody>
         <tr><td><code>name</code></td><td>string</td><td>—</td><td>Numele topicului</td></tr>
-        <tr><td><code>user_question</code></td><td>string|null</td><td>null</td><td><strong>Intrebarea libera</strong> adresata agentului (prioritate fata de keywords)</td></tr>
+        <tr><td><code>user_question</code></td><td>string|null</td><td>null</td><td><strong>Intrebarea libera</strong> adresata agentului (prioritate fata de keywords; protejat anti-prompt-injection)</td></tr>
         <tr><td><code>keywords</code></td><td>string</td><td>—</td><td>Cuvinte cheie (folosite cand user_question e gol)</td></tr>
-        <tr><td><code>days_back</code></td><td>int</td><td>7</td><td>Articole publicate in ultimele N zile</td></tr>
-        <tr><td><code>periodicity_hours</code></td><td>float</td><td>24</td><td>Interval rulare automata (ore)</td></tr>
+        <tr><td><code>days_back</code></td><td>int</td><td>7</td><td>Articole publicate in ultimele N zile (1–365)</td></tr>
+        <tr><td><code>periodicity_hours</code></td><td>float</td><td>24</td><td>Interval rulare automata (ore, min 0.5)</td></tr>
+        <tr><td><code>timeout_seconds</code></td><td>int</td><td>300</td><td>Timeout maxim pentru o cautare in secunde (30–3600). Dupa expirare, run-ul e marcat cu status <code>error</code>.</td></tr>
         <tr><td><code>provider</code></td><td>string</td><td>anthropic</td><td><code>anthropic</code> / <code>tavily</code> / <code>ollama</code></td></tr>
         <tr><td><code>active</code></td><td>bool</td><td>true</td><td>Include in scheduler automat</td></tr>
         <tr><td><code>send_email</code></td><td>bool</td><td>true</td><td>Trimite email dupa cautare</td></tr>
         <tr><td><code>user_ids</code></td><td>list[int]</td><td>[]</td><td>Utilizatori abonati</td></tr>
-        <tr><td><code>fallback_provider</code></td><td>string|null</td><td>null</td><td>Provider alternativ folosit automat daca cel principal esuaza (<code>anthropic</code> / <code>tavily</code> / <code>ollama</code>), optional</td></tr>
-        <tr><td><code>run_at_time</code></td><td>string|null</td><td>null</td><td>Ora zilnica de rulare in <strong>Europe/Bucharest</strong>, format <code>HH:MM</code> (ex: <code>07:00</code>). Daca e setat, ignora <code>periodicity_hours</code> si ruleaza zilnic la ora respectiva, optional</td></tr>
-        <tr><td><code>email_mode</code></td><td>string</td><td>immediate</td><td><code>immediate</code> — trimite email dupa fiecare rulare; <code>daily_digest</code> — agrega toate rezultatele zilei intr-un singur email trimis la 07:00 <strong>Europe/Bucharest</strong></td></tr>
-        <tr><td><code>deduplicate</code></td><td>bool</td><td>true</td><td><code>true</code> = salveaza doar articole noi (deduplicare dupa URL <em>si</em> titlu normalizat); <code>false</code> = salveaza toate articolele la fiecare run</td></tr>
       </tbody>
     </table>
 
@@ -1068,6 +1025,7 @@ curl -s -X POST $BASE/topics \
     "keywords": "immunotherapy cancer",
     "days_back": 7,
     "periodicity_hours": 24,
+    "timeout_seconds": 300,
     "provider": "anthropic",
     "send_email": true,
     "user_ids": [1, 2]
@@ -1110,6 +1068,7 @@ topic = httpx.post(f"{BASE}/topics", json={
     "keywords": "immunotherapy cancer",
     "days_back": 7,
     "periodicity_hours": 24,
+    "timeout_seconds": 300,
     "provider": "anthropic",
     "send_email": True,
     "user_ids": [1, 2]
@@ -1140,17 +1099,21 @@ httpx.post(f"{BASE}/topics/1/users/2")</pre>
       <span class="d-endpoint"><span class="d-method post">POST</span><span class="d-path">/api/searches/run/{topic_id}</span></span>
       <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/runs</span></span>
       <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/runs/{id}</span></span>
+      <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/runs/{id}/preview-email</span></span>
       <span class="d-endpoint"><span class="d-method delete">DELETE</span><span class="d-path">/api/searches/runs/{id}</span></span>
       <span class="d-endpoint"><span class="d-method delete">DELETE</span><span class="d-path">/api/searches/runs</span></span>
       <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/results</span></span>
       <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/results/export</span></span>
       <span class="d-endpoint"><span class="d-method delete">DELETE</span><span class="d-path">/api/searches/results/{id}</span></span>
+      <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/validate-provider/{provider}</span></span>
     </p>
-    <p>Parametri query: <code>topic_id</code>, <code>limit</code> (default 50/100), <code>offset</code> (default 0) &nbsp;·&nbsp;
-      Header raspuns: <code>X-Total-Count</code> — numarul total de inregistrari (indiferent de paginare) &nbsp;·&nbsp;
-      <code>POST /run/{id}</code> returneaza <strong>HTTP 409</strong> daca exista deja un run in progres pentru acel topic &nbsp;·&nbsp;
-      <code>DELETE /runs</code> accepta body JSON <code>{"ids": [1, 2, 3]}</code> — stergere in bulk (articolele aferente sunt sterse automat) &nbsp;·&nbsp;
-      <code>GET /results/export</code> accepta <code>format=csv|json</code> si <code>topic_id</code> optional — returneaza fisier pentru download direct</p>
+    <p>Parametri query: <code>topic_id</code>, <code>limit</code> (default 50/100) &nbsp;·&nbsp;
+      <code>DELETE /runs</code> accepta body JSON <code>{"ids": [1, 2, 3]}</code> — stergere in bulk (articolele aferente sunt sterse automat)</p>
+    <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.2);border-left:3px solid #c45c00;border-radius:.4rem;padding:.6rem .9rem;font-size:.84rem;margin-bottom:.75rem;">
+      <strong style="color:#c45c00;"><i class="bi bi-hourglass-split me-1"></i>Rate limiting</strong> —
+      <code>POST /api/searches/run/{topic_id}</code> are un cooldown de <strong>60 secunde</strong> per topic.
+      Apeluri repetate returneaza <code>HTTP 429</code> cu <code>{"detail": "Cooldown activ. Mai asteapta Ns."}</code>
+    </div>
 
     <div class="d-tabs-nav">
       <button class="d-tab-btn active" onclick="switchTab(this,'tab-search-curl')">curl</button>
@@ -1229,13 +1192,14 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
   "status": "success",
   "provider": "anthropic",
   "results_count": 8,
-  "started_at": "2026-04-19T13:30:00",
-  "finished_at": "2026-04-19T13:30:22",
+  "started_at": "2026-05-14T13:30:00",
+  "finished_at": "2026-05-14T13:30:22",
   "error_message": null,
   "tokens_input": 12450,
   "tokens_output": 1823,
   "api_calls": 5,
-  "results": [ { "title": "...", "url": "...", "published_date": "2026-04-18", ... } ]
+  "estimated_cost_usd": 0.0645,
+  "results": [ { "title": "...", "url": "...", "published_date": "2026-05-12", ... } ]
 }</div>
 
       <div style="margin-top:1rem">
@@ -1256,12 +1220,17 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             <tr>
               <td><code>api_calls</code></td>
               <td><span class="d-badge blue">anthropic</span></td>
-              <td>Numar apeluri <code>web_search_20250305</code> (max 8 per run)</td>
+              <td>Numar apeluri <code>web_search_20250305</code> (max 5 per run)</td>
+            </tr>
+            <tr>
+              <td><code>estimated_cost_usd</code></td>
+              <td><span class="d-badge blue">anthropic</span></td>
+              <td>Cost estimat in USD: <code>tokens_input/1M × $3 + tokens_output/1M × $15</code> (preturile claude-sonnet-4-6)</td>
             </tr>
             <tr>
               <td><code>api_calls</code></td>
               <td><span class="d-badge orange">tavily</span></td>
-              <td>Numar cereri Tavily API (2 interogari × 2 treceri academic/general = max 4; optional a 3-a trecere cu <code>user_question</code> daca difera de keywords)</td>
+              <td>Numar cereri Tavily API (2 interogari × 2 treceri academic/general = max 4)</td>
             </tr>
             <tr>
               <td><code>api_calls</code></td>
@@ -1269,53 +1238,30 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
               <td>Cereri Tavily + 1 apel LLM local pentru rezumare</td>
             </tr>
             <tr>
-              <td><code>cache_read</code></td>
-              <td><span class="d-badge blue">anthropic</span></td>
-              <td>Tokeni cititi din cache (prompt caching ephemeral) — reduc costul cu ~90%</td>
-            </tr>
-            <tr>
-              <td><code>tokens_input</code> / <code>tokens_output</code></td>
+              <td><code>tokens_input</code> / <code>tokens_output</code> / <code>estimated_cost_usd</code></td>
               <td><span class="d-badge orange">tavily</span> <span class="d-badge green">ollama</span></td>
-              <td><code>null</code> — Tavily si Ollama nu raporteaza tokeni</td>
+              <td><code>null</code> — Tavily si Ollama nu raporteaza tokeni, deci costul nu se calculeaza</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div style="margin-top:1rem">
-        <strong>Campuri SearchResult:</strong>
+        <strong>Endpoint-uri noi:</strong>
         <table class="d-table" style="margin-top:.5rem">
-          <thead><tr><th>Camp</th><th>Tip</th><th>Descriere</th></tr></thead>
+          <thead><tr><th>Endpoint</th><th>Descriere</th></tr></thead>
           <tbody>
             <tr>
-              <td><code>title</code></td>
-              <td>string</td>
-              <td>Titlul articolului</td>
+              <td><code>GET /runs/{id}/preview-email</code></td>
+              <td>Returneaza <code>HTMLResponse</code> cu raportul email exact al unui run — util pentru inspectie vizuala inainte de trimitere</td>
             </tr>
             <tr>
-              <td><code>url</code></td>
-              <td>string</td>
-              <td>URL-ul complet al articolului</td>
+              <td><code>GET /results/export?format=csv|json</code></td>
+              <td>Export complet al articolelor (fara limita). Parametru optional <code>topic_id</code>. CSV include header si encoding UTF-8.</td>
             </tr>
             <tr>
-              <td><code>published_date</code></td>
-              <td>string|null</td>
-              <td>Data publicarii in format <code>YYYY-MM-DD</code>; <code>null</code> daca nu a putut fi determinata</td>
-            </tr>
-            <tr>
-              <td><code>source</code></td>
-              <td>string|null</td>
-              <td>Sursa / domeniu (ex: <code>arxiv.org</code>, <code>pubmed.ncbi.nlm.nih.gov</code>)</td>
-            </tr>
-            <tr>
-              <td><code>summary</code></td>
-              <td>string|null</td>
-              <td>Rezumat generat de provider sau snippet brut extras de Tavily</td>
-            </tr>
-            <tr>
-              <td><code>relevance_score</code></td>
-              <td>float|null</td>
-              <td>Scor de relevanta 1–10 fata de topic, generat de provider. <code>null</code> daca providerul nu returneaza scor.</td>
+              <td><code>GET /validate-provider/{provider}</code></td>
+              <td>Testeaza conectivitatea live: Anthropic (<code>models.list()</code>), Tavily (cautare test), Ollama (<code>/api/tags</code>). Returneaza <code>{"ok": bool, "message": "..."}</code></td>
             </tr>
           </tbody>
         </table>
@@ -1326,187 +1272,73 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
 </section>
 
 
-<!-- ══ EXPORT REZULTATE ══════════════════════════════════════ -->
-<section id="export" class="d-section-anchor">
+<!-- ══ IMBUNATATIRI V2 ════════════════════════════════════════ -->
+<section id="improvements" class="d-section-anchor">
 <div class="d-card">
-  <div class="d-card-header"><i class="bi bi-download me-1"></i>Export rezultate</div>
-  <div class="d-card-body">
-    <p>
-      <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/results/export</span></span>
-    </p>
-    <p>Exporta rezultatele cautarilor intr-un fisier pentru download direct. Raspunsul este trimis cu header-ele corecte (<code>Content-Disposition: attachment</code>) astfel incat browserul sau curl il salveaza automat.</p>
-
-    <table class="d-table" style="margin-bottom:1rem">
-      <thead><tr><th>Parametru query</th><th>Tip</th><th>Default</th><th>Descriere</th></tr></thead>
-      <tbody>
-        <tr>
-          <td><code>format</code></td>
-          <td>string</td>
-          <td><code>csv</code></td>
-          <td>Formatul fisierului: <code>csv</code> sau <code>json</code></td>
-        </tr>
-        <tr>
-          <td><code>topic_id</code></td>
-          <td>int</td>
-          <td>—</td>
-          <td>Filtreaza dupa topic (optional). Daca lipseste, exporta toate rezultatele.</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="d-tabs-nav">
-      <button class="d-tab-btn active" onclick="switchTab(this,'tab-export-curl')">curl</button>
-      <button class="d-tab-btn" onclick="switchTab(this,'tab-export-py')">Python</button>
-    </div>
-    <div id="tab-export-curl" class="d-code-tabs">
-      <div class="d-code-block">
-        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre>BASE=http://localhost:8007/api
-
-# Export CSV — toate rezultatele
-curl -s -OJ "$BASE/searches/results/export?format=csv"
-
-# Export CSV — filtrat dupa topic
-curl -s -OJ "$BASE/searches/results/export?format=csv&topic_id=1"
-
-# Export JSON — toate rezultatele
-curl -s -OJ "$BASE/searches/results/export?format=json"
-
-# Export JSON — topic specific, salvat cu nume explicit
-curl -s "$BASE/searches/results/export?format=json&topic_id=2" \
-  -o results_topic2.json</pre>
-      </div>
-    </div>
-    <div id="tab-export-py" class="d-code-tabs" style="display:none">
-      <div class="d-code-block">
-        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre>import httpx
-
-BASE = "http://localhost:8007/api"
-
-# Export CSV
-r = httpx.get(f"{BASE}/searches/results/export", params={"format": "csv", "topic_id": 1})
-with open("rezultate.csv", "wb") as f:
-    f.write(r.content)
-print("Salvat: rezultate.csv")
-
-# Export JSON
-r = httpx.get(f"{BASE}/searches/results/export", params={"format": "json"})
-with open("rezultate.json", "wb") as f:
-    f.write(r.content)
-print("Salvat: rezultate.json")</pre>
-      </div>
-    </div>
-
-    <div style="background:rgba(0,68,170,.07);border:1px solid rgba(0,68,170,.2);border-left:3px solid #0044aa;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;margin-top:1rem;">
-      <strong style="color:#0044aa;"><i class="bi bi-info-circle me-1"></i>Nota</strong> —
-      Raspunsul este un fisier pentru download direct. Browserul il salveaza automat, iar curl cu <code>-OJ</code> foloseste numele din header-ul <code>Content-Disposition</code> (ex: <code>rezultate_topic1_20260423.csv</code>).
-    </div>
-  </div>
-</div>
-</section>
-
-<!-- ══ AUTENTIFICARE ══════════════════════════════════════════ -->
-<section id="auth" class="d-section-anchor">
-<div class="d-card">
-  <div class="d-card-header"><i class="bi bi-shield-lock me-1"></i>Autentificare API</div>
+  <div class="d-card-header"><i class="bi bi-rocket-takeoff me-1"></i>Imbunatatiri v2 (Mai 2026)</div>
   <div class="d-card-body" style="display:flex;flex-direction:column;gap:1rem;">
 
-    <p style="font-size:.9rem;">
-      In mod implicit, autentificarea este <strong>dezactivata</strong> — aplicatia functioneaza fara nicio cheie, compatibil cu versiunile anterioare.
-      Daca doresti sa protejezi rutele <code>/api/*</code>, seteaza variabila <code>API_KEY</code> in <code>.env</code>.
-    </p>
-
     <table class="d-table">
-      <thead><tr><th>Variabila .env</th><th>Default</th><th>Descriere</th></tr></thead>
+      <thead><tr><th>#</th><th>Imbunatatire</th><th>Impact</th></tr></thead>
       <tbody>
         <tr>
-          <td><code>API_KEY</code></td>
-          <td>— (dezactivat)</td>
-          <td>Cheia secreta pentru protejarea rutelor <code>/api/*</code>. Daca e goala sau absenta, autentificarea e dezactivata.</td>
+          <td>1</td>
+          <td><strong>Deduplicare cross-run</strong> — constraint <code>UNIQUE(topic_id, url)</code> pe <code>search_results</code></td>
+          <td>Articolele deja gasite nu se mai salveaza din nou in rulari ulterioare; baza de date creste mai putin</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>Timeout per topic</strong> — camp <code>timeout_seconds</code> (default 300s) pe <code>Topic</code>, wrapper <code>asyncio.wait_for()</code> in orchestrator</td>
+          <td>Cautarile blocate nu ocupa scheduler-ul la infinit; run-ul e marcat <code>error</code> cu mesaj clar</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Validare API key</strong> — <code>GET /api/searches/validate-provider/{provider}</code></td>
+          <td>Poti verifica daca cheia API functioneaza inainte de a o folosi intr-o cautare reala</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>Protectie prompt injection</strong> — <code>user_question</code> invelit in taguri XML <code>&lt;user_research_topic&gt;</code> in prompt</td>
+          <td>Utilizatorii maliciosi nu pot injecta instructiuni in Claude prin campul de intrebare</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>Migrari Alembic</strong> — inlocuit <code>_migrate_add_columns()</code> cu migrari formale Alembic (<code>alembic upgrade head</code> la pornire)</td>
+          <td>Modificarile la schema DB sunt versionare si reproductibile; nu mai e nevoie de migrari ad-hoc</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><strong>Preview email</strong> — <code>GET /api/searches/runs/{run_id}/preview-email</code></td>
+          <td>Poti vedea in browser cum arata raportul email al unui run, fara sa-l trimiti efectiv</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><strong>Cost estimat per rulare</strong> — camp <code>estimated_cost_usd</code> pe <code>SearchRun</code></td>
+          <td>Vizibil in UI si in email; ajuta la monitorizarea costurilor Anthropic in timp</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><strong>Rate limiting trigger manual</strong> — cooldown 60s pe <code>POST /api/searches/run/{topic_id}</code></td>
+          <td>Previne declansarea accidentala a mai multor cautari consecutive pe acelasi topic</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td><strong>Tab Articole in UI</strong> — vizualizare flat a tuturor articolelor cu search client-side, toggle deduplicare URL, export CSV/JSON</td>
+          <td>Nu mai trebuie sa navighezi prin fiecare run separat; poti cauta si exporta global</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td><strong>Export articole</strong> — <code>GET /api/searches/results/export?format=csv|json</code></td>
+          <td>Export complet fara limita de paginare, filtrat optional pe topic; util pentru analize externe</td>
         </tr>
       </tbody>
     </table>
 
-    <div>
-      <p style="font-weight:700;font-size:.88rem;margin-bottom:.5rem;">Cum trimiti cheia in cereri:</p>
-      <table class="d-table">
-        <thead><tr><th>Metoda</th><th>Exemplu</th><th>Recomandat</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>Header <code>X-API-Key</code></td>
-            <td><code>curl -H "X-API-Key: cheia_mea" ...</code></td>
-            <td><span class="d-badge green">Da</span></td>
-          </tr>
-          <tr>
-            <td>Query param <code>?api_key=</code></td>
-            <td><code>curl ".../api/topics?api_key=cheia_mea"</code></td>
-            <td><span class="d-badge orange">Alternativ</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="d-tabs-nav">
-      <button class="d-tab-btn active" onclick="switchTab(this,'tab-auth-curl')">curl</button>
-      <button class="d-tab-btn" onclick="switchTab(this,'tab-auth-py')">Python</button>
-      <button class="d-tab-btn" onclick="switchTab(this,'tab-auth-env')">Configurare .env</button>
-    </div>
-    <div id="tab-auth-curl" class="d-code-tabs">
-      <div class="d-code-block">
-        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre>BASE=http://localhost:8007/api
-KEY="cheia_mea_secreta"
-
-# Cu header X-API-Key (recomandat)
-curl -s -H "X-API-Key: $KEY" $BASE/topics
-
-# Cu query param (alternativ)
-curl -s "$BASE/topics?api_key=$KEY"
-
-# Cerere POST cu autentificare
-curl -s -X POST $BASE/topics \
-  -H "X-API-Key: $KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test","keywords":"AI","days_back":7,"provider":"tavily"}'</pre>
-      </div>
-    </div>
-    <div id="tab-auth-py" class="d-code-tabs" style="display:none">
-      <div class="d-code-block">
-        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre>import httpx
-
-BASE = "http://localhost:8007/api"
-API_KEY = "cheia_mea_secreta"
-
-# Client cu header implicit
-client = httpx.Client(
-    headers={"X-API-Key": API_KEY},
-    timeout=120
-)
-
-topics = client.get(f"{BASE}/topics").json()
-for t in topics:
-    print(f"[{t['id']}] {t['name']}")
-
-client.close()</pre>
-      </div>
-    </div>
-    <div id="tab-auth-env" class="d-code-tabs" style="display:none">
-      <div class="d-code-block">
-        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre># In fisierul .env:
-API_KEY=cheia_mea_secreta_greu_de_ghicit
-
-# Genereaza o cheie aleatoare sigura:
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
-      </div>
-    </div>
-
-    <div style="background:rgba(26,107,74,.07);border:1px solid rgba(26,107,74,.2);border-left:3px solid #1a6b4a;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
-      <strong style="color:#1a6b4a;"><i class="bi bi-check-circle me-1"></i>Compatibilitate retroactiva</strong> —
-      Daca <code>API_KEY</code> nu este setata in <code>.env</code>, toate rutele <code>/api/*</code> raman accesibile fara autentificare,
-      exact ca inainte. Nu e nevoie sa modifici nimic in configuratia existenta.
+    <div style="background:rgba(0,68,170,.06);border:1px solid rgba(0,68,170,.18);border-left:3px solid #0044aa;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
+      <strong style="color:#0044aa;"><i class="bi bi-database-gear me-1"></i>Migrare DB automata</strong> —
+      La prima pornire dupa upgrade, Alembic detecteaza schema existenta, o stampileaza ca <em>baseline</em> si aplica
+      automat coloanele noi (<code>timeout_seconds</code>, <code>estimated_cost_usd</code>) si constrangerea UNIQUE.
+      Nu e nevoie de actiuni manuale.
     </div>
 
   </div>
@@ -1748,7 +1580,6 @@ Provider: anthropic · Run #37</div>
         <tr><td><code>NTFY_ENABLED</code></td><td>false</td><td>Activeaza/dezactiveaza notificarile ntfy (<code>true</code> / <code>false</code>)</td></tr>
         <tr><td><code>NTFY_TOPIC</code></td><td>—</td><td>Numele topicului ntfy, ex: <code>agent-articole-abc123</code></td></tr>
         <tr><td><code>NTFY_BASE_URL</code></td><td>https://ntfy.sh</td><td>Server ntfy: <code>https://ntfy.sh</code> (cloud) sau <code>http://localhost:8080</code> (local Docker)</td></tr>
-        <tr><td><code>API_KEY</code></td><td>— (dezactivat)</td><td>Cheie secreta pentru protejarea rutelor <code>/api/*</code>. Daca e goala sau absenta, autentificarea e dezactivata (compatibil cu versiunile anterioare). Trimite-o ca header <code>X-API-Key</code> sau query param <code>?api_key=</code>.</td></tr>
       </tbody>
     </table>
   </div>

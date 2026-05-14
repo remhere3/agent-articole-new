@@ -1,11 +1,10 @@
 import logging
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Depends
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from fastapi.staticfiles import StaticFiles
@@ -34,29 +33,10 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).parent.parent
 
 
-def _recover_stuck_runs():
-    """Marcheaza run-urile blocate in 'running' ca 'error' dupa un restart neasteptat."""
-    from app.database import SessionLocal
-    from app import models
-    db = SessionLocal()
-    try:
-        stuck = db.query(models.SearchRun).filter(models.SearchRun.status == "running").all()
-        if stuck:
-            for run in stuck:
-                run.status = "error"
-                run.error_message = "Server restarted while run was in progress"
-                run.finished_at = datetime.utcnow()
-            db.commit()
-            logger.warning(f"Recovered {len(stuck)} stuck run(s) marked as error")
-    finally:
-        db.close()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     logger.info("Database initialized")
-    _recover_stuck_runs()
     start_scheduler()
     yield
     stop_scheduler()
@@ -75,19 +55,6 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 app.include_router(users.router)
 app.include_router(topics.router)
 app.include_router(searches.router)
-
-
-@app.middleware("http")
-async def api_key_auth(request: Request, call_next):
-    if not app_settings.api_key:
-        return await call_next(request)
-    # Protejăm doar /api/* dar nu /api/logs/stream (SSE)
-    path = request.url.path
-    if path.startswith("/api/") and path != "/api/logs/stream":
-        key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
-        if key != app_settings.api_key:
-            return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
-    return await call_next(request)
 
 
 @app.middleware("http")

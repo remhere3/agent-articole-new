@@ -26,12 +26,14 @@
 | POST | `/api/topics/{id}/users/{uid}` | Aboneaza utilizator la topic |
 | DELETE | `/api/topics/{id}/users/{uid}` | Dezaboneaza utilizator |
 | **Cautari** | | |
-| POST | `/api/searches/run/{topic_id}` | Declanseaza manual cautare |
+| POST | `/api/searches/run/{topic_id}` | Declanseaza manual cautare (cooldown 60s) |
 | GET | `/api/searches/runs` | Lista rulari |
 | GET | `/api/searches/runs/{run_id}` | Detalii rulare + rezultate |
+| GET | `/api/searches/runs/{run_id}/preview-email` | Preview HTML raport email |
 | GET | `/api/searches/results` | Lista articole gasite |
-| GET | `/api/searches/results/export` | Export rezultate CSV sau JSON |
+| GET | `/api/searches/results/export` | Export CSV sau JSON (fara limita) |
 | DELETE | `/api/searches/results/{id}` | Sterge un articol |
+| GET | `/api/searches/validate-provider/{provider}` | Valideaza conectivitate provider |
 | **Setari** | | |
 | GET | `/api/settings` | Lista setari curente |
 | PUT | `/api/settings/{key}` | Seteaza/actualizeaza o valoare |
@@ -152,16 +154,13 @@ for t in r.json():
 | Camp | Tip | Descriere | Default |
 |------|-----|-----------|---------|
 | `name` | string | Numele topicului | obligatoriu |
-| `keywords` | string | Termeni de cautare; dacă lipsește, se folosește `user_question` | null |
-| `user_question` | string | Intrebarea libera adresata agentului (recomandat) | null |
+| `keywords` | string | Termeni de cautare (fallback) | obligatoriu |
+| `user_question` | string | Intrebarea libera adresata agentului | null |
 | `days_back` | int | Articole din ultimele N zile (1–365) | 7 |
 | `periodicity_hours` | float | Ruleaza la fiecare N ore (min 0.5) | 24 |
+| `timeout_seconds` | int | Timeout maxim pentru o cautare (30–3600) | 300 |
 | `provider` | string | `anthropic` / `tavily` / `ollama` | `anthropic` |
-| `fallback_provider` | string | Provider alternativ dacă cel principal eșuează | null |
-| `run_at_time` | string | Ora zilnică de rulare **Europe/Bucharest**, format `HH:MM` (ignoră periodicitatea) | null |
-| `email_mode` | string | `immediate` (după fiecare rulare) sau `daily_digest` (un email zilnic la 07:00 Europe/Bucharest) | `immediate` |
-| `deduplicate` | bool | `true` = salvează doar articole noi (fără duplicate după URL sau titlu); `false` = salvează tot | true |
-| `active` | bool | Ruleaza automat conform programului | true |
+| `active` | bool | Ruleaza automat | true |
 | `send_email` | bool | Trimite email dupa cautare | true |
 | `user_ids` | list[int] | Utilizatori abonati | [] |
 
@@ -176,10 +175,8 @@ curl -s -X POST http://localhost:8007/api/topics \
     "keywords": "gene therapy, CRISPR",
     "days_back": 7,
     "periodicity_hours": 24,
+    "timeout_seconds": 300,
     "provider": "anthropic",
-    "fallback_provider": "tavily",
-    "run_at_time": "07:00",
-    "email_mode": "immediate",
     "active": true,
     "send_email": true,
     "user_ids": [1, 2]
@@ -192,10 +189,8 @@ r = httpx.post("http://localhost:8007/api/topics", json={
     "keywords": "gene therapy, CRISPR",
     "days_back": 7,
     "periodicity_hours": 24,
+    "timeout_seconds": 300,
     "provider": "anthropic",
-    "fallback_provider": "tavily",
-    "run_at_time": "07:00",
-    "email_mode": "immediate",
     "active": True,
     "send_email": True,
     "user_ids": [1, 2]
@@ -215,9 +210,6 @@ curl -s -X POST http://localhost:8007/api/topics \
     "days_back": 14,
     "periodicity_hours": 12,
     "provider": "tavily",
-    "fallback_provider": "tavily",
-    "run_at_time": "07:00",
-    "email_mode": "immediate",
     "user_ids": [1]
   }'
 ```
@@ -228,9 +220,6 @@ r = httpx.post("http://localhost:8007/api/topics", json={
     "days_back": 14,
     "periodicity_hours": 12,
     "provider": "tavily",
-    "fallback_provider": "tavily",
-    "run_at_time": "07:00",
-    "email_mode": "immediate",
     "user_ids": [1]
 })
 print(r.json())
@@ -277,16 +266,6 @@ curl -s -X PUT http://localhost:8007/api/topics/1 \
 curl -s -X PUT http://localhost:8007/api/topics/1 \
   -H "Content-Type: application/json" \
   -d '{"user_ids": [1, 3, 5]}'
-
-# Seteaza ora de rulare zilnica la 07:00 UTC
-curl -s -X PUT http://localhost:8007/api/topics/1 \
-  -H "Content-Type: application/json" \
-  -d '{"run_at_time": "07:00"}'
-
-# Configureaza fallback provider si mod digest
-curl -s -X PUT http://localhost:8007/api/topics/1 \
-  -H "Content-Type: application/json" \
-  -d '{"fallback_provider": "tavily", "email_mode": "daily_digest"}'
 ```
 ```python
 # Actualizeaza mai multe campuri
@@ -346,33 +325,39 @@ print(r.json())
 
 Ruleaza imediat cautarea pentru un topic, indiferent de programul automat.
 
-> **HTTP 409** dacă există deja un run în progres pentru același topic — așteptați finalizarea lui înainte să retrigerați.
+**Rate limiting:** apeluri repetate la acelasi topic in mai putin de 60 de secunde returneaza `HTTP 429`:
+```json
+{"detail": "Cooldown activ. Mai asteapta 45s."}
+```
 
 ```bash
 # Ruleaza si afiseaza rezultatele
 curl -s -X POST http://localhost:8007/api/searches/run/1 | python3 -m json.tool
 ```
 ```python
+import httpx
+
 r = httpx.post("http://localhost:8007/api/searches/run/1", timeout=120.0)
-run = r.json()
-print(f"Run #{run['id']}: {run['status']} — {run['results_count']} articole ({run['provider']})")
-if run['error_message']:
-    print(f"Eroare: {run['error_message']}")
-for a in run['results']:
-    print(f"\n  {a['title']}")
-    print(f"  URL: {a['url']}")
-    print(f"  Publicat: {a['published_date']} | Sursa: {a['source']}")
-    print(f"  Scor relevanta: {a['relevance_score']}")
-    if a['summary']:
-        print(f"  Rezumat: {a['summary'][:120]}...")
+if r.status_code == 429:
+    print(f"Cooldown: {r.json()['detail']}")
+else:
+    run = r.json()
+    print(f"Run #{run['id']}: {run['status']} — {run['results_count']} articole ({run['provider']})")
+    if run.get('estimated_cost_usd'):
+        print(f"Cost estimat: ${run['estimated_cost_usd']:.4f} USD")
+    if run['error_message']:
+        print(f"Eroare: {run['error_message']}")
+    for a in run['results']:
+        print(f"\n  {a['title']}")
+        print(f"  URL: {a['url']}")
+        print(f"  Publicat: {a['published_date']} | Sursa: {a['source']}")
+        if a['summary']:
+            print(f"  Rezumat: {a['summary'][:120]}...")
 ```
 
 ---
 
 ### GET /api/searches/runs — lista rulari
-
-Parametri query: `topic_id`, `limit` (implicit 50), `offset` (implicit 0).  
-Header răspuns: `X-Total-Count` — numărul total de rulări (util pentru paginare).
 
 ```bash
 # Toate rularile (ultimele 50)
@@ -381,17 +366,18 @@ curl -s "http://localhost:8007/api/searches/runs" | python3 -m json.tool
 # Rularile unui topic specific
 curl -s "http://localhost:8007/api/searches/runs?topic_id=1"
 
-# Pagina 2 (runs 51-100)
-curl -s "http://localhost:8007/api/searches/runs?limit=50&offset=50"
+# Ultimele 10 rulari
+curl -s "http://localhost:8007/api/searches/runs?limit=10"
 
 # Combinate
-curl -s "http://localhost:8007/api/searches/runs?topic_id=1&limit=5&offset=0"
+curl -s "http://localhost:8007/api/searches/runs?topic_id=1&limit=5"
 ```
 ```python
-# Paginare completa
-r = httpx.get("http://localhost:8007/api/searches/runs", params={"topic_id": 1, "limit": 20})
-total = int(r.headers.get("X-Total-Count", 0))
-print(f"{total} rulari totale")
+# Toate rularile unui topic
+r = httpx.get("http://localhost:8007/api/searches/runs", params={
+    "topic_id": 1,
+    "limit": 20
+})
 for run in r.json():
     print(f"Run #{run['id']}: {run['status']} | {run['results_count']} articole | {run['started_at']}")
 ```
@@ -419,10 +405,6 @@ for a in run['results']:
 
 ### GET /api/searches/results — lista articole gasite
 
-Parametri query: `topic_id`, `limit` (implicit 100), `offset` (implicit 0).  
-Header răspuns: `X-Total-Count` — numărul total de articole (util pentru paginare).  
-Fiecare articol include `relevance_score` (float, 1–10).
-
 ```bash
 # Toate articolele (ultimele 100)
 curl -s "http://localhost:8007/api/searches/results" | python3 -m json.tool
@@ -430,24 +412,18 @@ curl -s "http://localhost:8007/api/searches/results" | python3 -m json.tool
 # Filtrat dupa topic
 curl -s "http://localhost:8007/api/searches/results?topic_id=1"
 
-# Pagina 2 (articolele 101-200)
-curl -s "http://localhost:8007/api/searches/results?limit=100&offset=100"
-
-# Combinate
-curl -s "http://localhost:8007/api/searches/results?topic_id=1&limit=20&offset=0"
+# Cu limita custom
+curl -s "http://localhost:8007/api/searches/results?topic_id=1&limit=20"
 ```
 ```python
 r = httpx.get("http://localhost:8007/api/searches/results", params={
     "topic_id": 1,
-    "limit": 50,
-    "offset": 0,
+    "limit": 50
 })
-total = int(r.headers.get("X-Total-Count", 0))
-print(f"{total} articole totale")
 for a in r.json():
     print(f"[{a['published_date']}] {a['title']}")
     print(f"  {a['url']}")
-    print(f"  {a['source']} | {a['provider']} | scor={a['relevance_score']}")
+    print(f"  {a['source']} | {a['provider']}")
 ```
 
 ---
@@ -464,72 +440,95 @@ print(r.json())  # {"message": "Result 42 deleted"}
 
 ---
 
-## 5. Export rezultate
+### GET /api/searches/runs/{run_id}/preview-email — preview raport HTML
 
-### GET /api/searches/results/export — exporta in CSV sau JSON
-
-Parametri query:
-- `format` — `csv` (implicit) sau `json`
-- `topic_id` — opțional, filtrare pe topic
+Returneaza raportul HTML exact care ar fi trimis pe email pentru o rulare.
+Util pentru a verifica aspectul emailului inainte de a-l trimite.
 
 ```bash
-# Export CSV toate articolele
+# Deschide in browser
+curl -s http://localhost:8007/api/searches/runs/5/preview-email > preview.html && xdg-open preview.html
+```
+```python
+r = httpx.get("http://localhost:8007/api/searches/runs/5/preview-email")
+# r.text contine HTML-ul complet al raportului
+with open("preview.html", "w") as f:
+    f.write(r.text)
+print("Preview salvat in preview.html")
+```
+
+---
+
+### GET /api/searches/results/export — export CSV sau JSON
+
+Exporta toate articolele gasite (fara limita artificiala). Accepta parametrul `format=csv` sau `format=json`.
+Optional, filtreaza dupa `topic_id`.
+
+```bash
+# Export CSV complet (toate topicurile)
 curl -s "http://localhost:8007/api/searches/results/export?format=csv" -o articole.csv
 
-# Export JSON pentru un topic specific
-curl -s "http://localhost:8007/api/searches/results/export?format=json&topic_id=1" -o articole.json
+# Export JSON filtrat pe un topic
+curl -s "http://localhost:8007/api/searches/results/export?format=json&topic_id=1" -o topic1.json
 
-# Cu autentificare (dacă API_KEY e configurat în .env)
-curl -s "http://localhost:8007/api/searches/results/export?format=csv" \
-  -H "X-API-Key: cheia-ta-secreta" -o articole.csv
+# Export CSV pentru un topic
+curl -s "http://localhost:8007/api/searches/results/export?format=csv&topic_id=2" -o topic2.csv
 ```
 ```python
-import httpx
-
-headers = {"X-API-Key": "cheia-ta"}  # omite dacă nu e configurată autentificarea
-
+# Export CSV in fisier
 r = httpx.get("http://localhost:8007/api/searches/results/export",
-              params={"format": "json", "topic_id": 1},
-              headers=headers)
-with open("articole.json", "wb") as f:
+              params={"format": "csv", "topic_id": 1})
+with open("articole.csv", "wb") as f:
     f.write(r.content)
-print("Export salvat.")
+
+# Export JSON si proceseaza
+r = httpx.get("http://localhost:8007/api/searches/results/export",
+              params={"format": "json"})
+articole = r.json()
+print(f"Total: {len(articole)} articole exportate")
+for a in articole[:5]:
+    print(f"[{a['published_date']}] {a['title'][:60]}")
 ```
+
+Campuri CSV/JSON exportate: `id`, `title`, `url`, `authors`, `source`, `published_date`, `summary`, `provider`, `found_at`, `topic_id`
 
 ---
 
-## 6. Autentificare (opțională)
+### GET /api/searches/validate-provider/{provider} — valideaza provider
 
-Dacă variabila `API_KEY` este setată în `.env`, toate rutele `/api/*` necesită header-ul `X-API-Key`.
+Testeaza conectivitatea si validitatea cheii API pentru un provider.
+Returneaza `{"ok": true/false, "message": "..."}`.
 
 ```bash
-# Toate request-urile trebuie să includă:
-curl -s http://localhost:8007/api/topics \
-  -H "X-API-Key: cheia-ta-secreta"
+# Valideaza Anthropic
+curl -s http://localhost:8007/api/searches/validate-provider/anthropic | python3 -m json.tool
 
-# Sau ca query param (util pentru download-uri directe)
-curl -s "http://localhost:8007/api/searches/results/export?format=csv&api_key=cheia-ta-secreta" \
-  -o articole.csv
+# Valideaza Tavily
+curl -s http://localhost:8007/api/searches/validate-provider/tavily | python3 -m json.tool
+
+# Valideaza Ollama (local)
+curl -s http://localhost:8007/api/searches/validate-provider/ollama | python3 -m json.tool
 ```
 ```python
-import httpx
+for provider in ["anthropic", "tavily", "ollama"]:
+    r = httpx.get(f"http://localhost:8007/api/searches/validate-provider/{provider}",
+                  timeout=10.0)
+    result = r.json()
+    status = "✓" if result["ok"] else "✗"
+    print(f"{status} {provider}: {result['message']}")
 
-# Client cu autentificare
-client = httpx.Client(
-    base_url="http://localhost:8007",
-    headers={"X-API-Key": "cheia-ta-secreta"},
-    timeout=120.0
-)
+# Exemplu raspuns (cheia valida):
+# {"ok": true, "message": "Anthropic OK — model claude-sonnet-4-6 accesibil"}
 
-# Toate request-urile includ automat X-API-Key
-topics = client.get("/api/topics").json()
+# Exemplu raspuns (cheia invalida):
+# {"ok": false, "message": "Anthropic error: authentication_error — invalid x-api-key"}
 ```
 
-Dacă `API_KEY` nu e setat în `.env`, autentificarea este dezactivată (compatibil cu versiunile anterioare).
+Provideri acceptati: `anthropic`, `tavily`, `ollama`
 
 ---
 
-## 7. Setari
+## 5. Setari
 
 ### GET /api/settings — lista setari
 
@@ -613,7 +612,7 @@ set_setting("email_from",        "Agent Articole <you@gmail.com>")
 
 ---
 
-## 8. Exemplu complet end-to-end
+## 6. Exemplu complet end-to-end
 
 ```python
 import httpx
@@ -659,40 +658,14 @@ results = client.get(f"{BASE}/searches/results",
 for i, a in enumerate(results, 1):
     print(f"\n{i}. {a['title']}")
     print(f"   {a['url']}")
-    print(f"   {a['source']} | {a['published_date']} | scor={a['relevance_score']}")
+    print(f"   {a['source']} | {a['published_date']}")
     if a["summary"]:
         print(f"   {a['summary'][:150]}...")
 ```
 
 ---
 
-## 9. Note tehnice
-
-### Provideri — comportament
-
-| Provider | Mecanism | Deduplicare |
-|----------|----------|-------------|
-| `anthropic` | Claude + `web_search` (max 8 căutări/run), prompt caching activ | URL + titlu normalizat |
-| `tavily` | Tavily API (academic + general, 2–3 treceri); adaugă trecere suplimentară dacă `user_question` e setat | URL + titlu normalizat |
-| `ollama` | Tavily căută → modelul Ollama rezumă; fallback automat la Tavily raw dacă modelul returnează mai puțin | URL + titlu normalizat |
-
-### Avertisment date Tavily
-Când providerul este `tavily` sau `ollama` și există articole fără dată de publicare confirmată, emailul de raport conține un avertisment explicit — Tavily nu garantează filtrarea strictă după dată pentru toate sursele academice.
-
-### Scheduler
-- Orchestrare automată la fiecare **15 minute** — verifică topicurile scadente.
-- `run_at_time` specifică ora în **Europe/Bucharest** (ajustare automată oră de vară/iarnă).
-- `daily_digest` se trimite la **07:00 Europe/Bucharest**.
-- Dacă un topic are deja un run în progres, ciclul curent îl sare.
-- La repornirea serverului, run-urile blocate în `"running"` sunt marcate automat ca `"error"`.
-
-### Baza de date
-- SQLite cu **WAL mode** activat — citirile nu blochează scrierile simultane.
-- Indexuri pe `search_results(topic_id)`, `search_results(found_at)`, `search_runs(topic_id)`.
-
----
-
-## 10. Raspunsuri de eroare
+## 7. Raspunsuri de eroare
 
 Toate erorile returneaza JSON cu campul `detail`:
 
@@ -701,10 +674,20 @@ Toate erorile returneaza JSON cu campul `detail`:
 {"detail": "Email already registered"}
 {"detail": "ANTHROPIC_API_KEY not configured"}
 {"detail": "provider must be one of {'anthropic', 'tavily', 'ollama'}"}
+{"detail": "Cooldown activ. Mai asteapta 45s."}
 ```
+
+| Status | Situatie |
+|--------|----------|
+| 404 | Resursa (topic, user, run) nu exista |
+| 422 | Date invalide (validare Pydantic) |
+| 429 | Rate limit declansat — mai asteapta N secunde |
+| 500 | Eroare interna (API key gresita, timeout etc.) |
 
 ```python
 r = httpx.post(f"{BASE}/searches/run/999")
-if r.status_code != 200:
+if r.status_code == 429:
+    print(f"Cooldown: {r.json()['detail']}")
+elif r.status_code != 200:
     print(f"Eroare {r.status_code}: {r.json()['detail']}")
 ```

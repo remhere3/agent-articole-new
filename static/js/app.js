@@ -16,6 +16,7 @@ function showSection(name) {
   else if (name === 'users')    loadUsers();
   else if (name === 'results')  { populateTopicFilter('filter-topic'); loadResults(); }
   else if (name === 'runs')     { populateTopicFilter('filter-runs-topic'); loadRuns(); }
+  else if (name === 'articles') { populateTopicFilter('filter-articles-topic'); loadArticles(); }
 }
 
 /* ── API helpers ──────────────────────────────────────────────────────── */
@@ -24,8 +25,6 @@ async function api(method, path, body) {
     method,
     headers: { 'Content-Type': 'application/json' },
   };
-  const storedKey = localStorage.getItem('agent_api_key');
-  if (storedKey) opts.headers['X-API-Key'] = storedKey;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch('/api' + path, opts);
   if (!res.ok) {
@@ -41,36 +40,6 @@ function toast(msg, type = 'success') {
   el.className = `toast align-items-center text-white border-0 bg-${type === 'success' ? 'success' : 'danger'}`;
   body.textContent = msg;
   bootstrap.Toast.getOrCreateInstance(el, { delay: 3500 }).show();
-}
-
-/* ── API Key ──────────────────────────────────────────────────────────── */
-function openApiKeyModal() {
-  const stored = localStorage.getItem('agent_api_key') || '';
-  document.getElementById('api-key-input').value = stored ? '••••••••' : '';
-  new bootstrap.Modal(document.getElementById('modalApiKey')).show();
-}
-
-function saveApiKey() {
-  const val = document.getElementById('api-key-input').value.trim();
-  if (val && val !== '••••••••') localStorage.setItem('agent_api_key', val);
-  bootstrap.Modal.getInstance(document.getElementById('modalApiKey')).hide();
-  toast('API Key salvat');
-}
-
-function clearApiKey() {
-  localStorage.removeItem('agent_api_key');
-  document.getElementById('api-key-input').value = '';
-  bootstrap.Modal.getInstance(document.getElementById('modalApiKey')).hide();
-  toast('API Key șters');
-}
-
-/* ── Export ───────────────────────────────────────────────────────────── */
-function exportResults(format) {
-  const topicId = document.getElementById('filter-topic').value;
-  const topicParam = topicId ? `&topic_id=${topicId}` : '';
-  const apiKey = localStorage.getItem('agent_api_key') || '';
-  const keyParam = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : '';
-  window.location.href = `/api/searches/results/export?format=${format}${topicParam}${keyParam}`;
 }
 
 function fmt(dateStr) {
@@ -121,7 +90,6 @@ async function loadDashboard() {
           <span><i class="bi bi-clock"></i> /${t.periodicity_hours}h</span>
           <span><i class="bi bi-people"></i> ${t.users.length}</span>
           <span><i class="bi bi-check-circle ${t.send_email ? 'text-success' : 'text-muted'}"></i> email</span>
-          <span><i class="bi bi-funnel"></i> ${t.deduplicate ? 'doar articole noi' : 'toate articolele'}</span>
         </div>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary" onclick="runSearch(${t.id})">
@@ -146,12 +114,11 @@ async function loadTopics() {
             <span class="ms-2 badge ${t.active ? 'bg-success' : 'bg-secondary'}">${t.active ? 'activ' : 'inactiv'}</span>
           </h6>
           <div class="text-muted small mb-1">${esc(t.keywords)}</div>
-          <div class="d-flex gap-3 small text-muted flex-wrap">
+          <div class="d-flex gap-3 small text-muted">
             <span>${providerBadge(t.provider)}</span>
             <span><i class="bi bi-calendar3"></i> ultimele ${t.days_back} zile</span>
             <span><i class="bi bi-clock"></i> la fiecare ${t.periodicity_hours}h</span>
             <span><i class="bi bi-people"></i> ${t.users.map(u => esc(u.name)).join(', ') || 'nimeni'}</span>
-            <span><i class="bi bi-funnel"></i> ${t.deduplicate ? 'doar articole noi' : 'toate articolele'}</span>
           </div>
         </div>
         <div class="d-flex gap-2">
@@ -177,14 +144,13 @@ function openTopicModal() {
   document.getElementById('topic-keywords').value = '';
   document.getElementById('topic-days_back').value = 7;
   document.getElementById('topic-periodicity_hours').value = 24;
+  document.getElementById('topic-timeout_seconds').value = 300;
   document.getElementById('topic-provider').value = 'anthropic';
   document.getElementById('topic-active').checked = true;
-  document.getElementById('topic-deduplicate').checked = true;
   document.getElementById('topic-send_email').checked = true;
   document.getElementById('modalTopicTitle').textContent = 'Topic nou';
-  document.getElementById('topic-run_at_time').value = '';
-  document.getElementById('topic-fallback_provider').value = '';
-  document.getElementById('topic-email_mode').value = 'immediate';
+  const testBtn = document.getElementById('btn-test-provider');
+  if (testBtn) testBtn.textContent = 'Testează';
   renderUserCheckboxes([]);
 }
 
@@ -211,14 +177,13 @@ function editTopic(id) {
   document.getElementById('topic-keywords').value = t.keywords;
   document.getElementById('topic-days_back').value = t.days_back;
   document.getElementById('topic-periodicity_hours').value = t.periodicity_hours;
+  document.getElementById('topic-timeout_seconds').value = t.timeout_seconds || 300;
   document.getElementById('topic-provider').value = t.provider;
   document.getElementById('topic-active').checked = t.active;
-  document.getElementById('topic-deduplicate').checked = t.deduplicate ?? true;
   document.getElementById('topic-send_email').checked = t.send_email;
-  document.getElementById('topic-run_at_time').value = t.run_at_time || '';
-  document.getElementById('topic-fallback_provider').value = t.fallback_provider || '';
-  document.getElementById('topic-email_mode').value = t.email_mode || 'immediate';
   document.getElementById('modalTopicTitle').textContent = 'Editeaza topic';
+  const testBtn = document.getElementById('btn-test-provider');
+  if (testBtn) testBtn.textContent = 'Testează';
   renderUserCheckboxes(t.users.map(u => u.id));
 }
 
@@ -233,13 +198,10 @@ async function saveTopic() {
     keywords: keywords || null,
     days_back: +document.getElementById('topic-days_back').value,
     periodicity_hours: +document.getElementById('topic-periodicity_hours').value,
+    timeout_seconds: +document.getElementById('topic-timeout_seconds').value || 300,
     provider: document.getElementById('topic-provider').value,
     active: document.getElementById('topic-active').checked,
-    deduplicate: document.getElementById('topic-deduplicate').checked,
     send_email: document.getElementById('topic-send_email').checked,
-    fallback_provider: document.getElementById('topic-fallback_provider').value || null,
-    run_at_time: document.getElementById('topic-run_at_time').value.trim() || null,
-    email_mode: document.getElementById('topic-email_mode').value,
     user_ids: userIds,
   };
   if (!payload.name) { toast('Completeaza numele topicului', 'danger'); return; }
@@ -254,13 +216,10 @@ async function saveTopic() {
   } catch (e) { toast(e.message, 'danger'); }
 }
 
-function deleteTopic(id) {
-  const topic = allTopics.find(t => t.id === id);
-  confirmDelete({
-    title: `Ștergi topicul "${topic?.name || id}"?`,
-    body:  'Vor fi șterse și toate run-urile și articolele asociate.',
-    onConfirm: async () => { await api('DELETE', `/topics/${id}`); toast('Topic șters'); loadTopics(); loadDashboard(); },
-  });
+async function deleteTopic(id) {
+  if (!confirm('Stergi topicul si toate rezultatele asociate?')) return;
+  try { await api('DELETE', `/topics/${id}`); toast('Topic sters'); loadTopics(); }
+  catch (e) { toast(e.message, 'danger'); }
 }
 
 let _runTimerInterval = null;
@@ -361,13 +320,10 @@ async function saveUser() {
   } catch (e) { toast(e.message, 'danger'); }
 }
 
-function deleteUser(id) {
-  const user = allUsers.find(u => u.id === id);
-  confirmDelete({
-    title: `Ștergi utilizatorul "${user?.name || id}"?`,
-    body:  'Utilizatorul va fi dezabonat din toate topicurile.',
-    onConfirm: async () => { await api('DELETE', `/users/${id}`); toast('Utilizator șters'); loadUsers(); },
-  });
+async function deleteUser(id) {
+  if (!confirm('Stergi utilizatorul?')) return;
+  try { await api('DELETE', `/users/${id}`); toast('Utilizator sters'); loadUsers(); }
+  catch (e) { toast(e.message, 'danger'); }
 }
 
 /* ── Results ─────────────────────────────────────────────────────────── */
@@ -391,7 +347,6 @@ async function loadResults() {
 
   // index runs by id
   const runMap = Object.fromEntries(runs.map(r => [r.id, r]));
-  window._runMap = runMap;
 
   // group results by run_id (order preserved — results come newest first)
   const groups = {};
@@ -401,11 +356,6 @@ async function loadResults() {
     if (!groups[rid]) { groups[rid] = []; groupOrder.push(rid); }
     groups[rid].push(r);
   }
-  // sorteaza articolele din fiecare grup descrescator dupa relevance_score
-  for (const rid of groupOrder) {
-    groups[rid].sort((a, b) => (b.relevance_score ?? 0) - (a.relevance_score ?? 0));
-  }
-  window._groups = groups;
 
   el.innerHTML = '<div class="accordion" id="results-accordion">' +
     groupOrder.map((rid, idx) => {
@@ -437,7 +387,6 @@ async function loadResults() {
           <span class="badge" style="background:rgba(26,107,74,.12);color:#1a6b4a;font-family:'Inconsolata',monospace;">
             ${items.length} articole
           </span>
-          ${(() => { const nd = items.filter(x => !x.published_date).length; return nd ? `<span class="badge" style="background:#fef9c3;color:#854d0e;font-size:.75rem;" title="${nd} articole fara data de publicare — pot fi vechi">&#9888; ${nd} fara data</span>` : ''; })()}
           <span class="text-muted" style="font-size:.78rem;">${dateStr}${dur}</span>
           ${queryLabel}
         </div>`;
@@ -452,10 +401,6 @@ async function loadResults() {
                 ${r.published_date ? `<span>${esc(r.published_date)}</span> &bull; ` : ''}
                 ${r.authors        ? `<span>${esc(r.authors)}</span>` : ''}
               </div>
-              <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:4px;align-items:center;">
-                ${r.relevance_score != null ? `<span class="badge" style="background:#fef3c7;color:#92400e;font-size:.7rem;">&#11088; ${r.relevance_score.toFixed(1)}/10</span>` : ''}
-                ${!r.published_date ? `<span class="badge" style="background:#fef9c3;color:#854d0e;font-size:.7rem;" title="Data publicarii nu a fost gasita — articolul poate fi vechi">&#9888; data necunoscuta</span>` : ''}
-              </div>
               ${r.summary ? `<div class="mt-1 small text-secondary">${esc(r.summary)}</div>` : ''}
             </div>
             <button class="btn btn-sm btn-outline-danger flex-shrink-0" onclick="deleteResult(${r.id})">
@@ -466,17 +411,11 @@ async function loadResults() {
 
       return `
         <div class="accordion-item" style="border:1px solid var(--border);border-radius:6px;margin-bottom:8px;overflow:hidden;">
-          <h2 class="accordion-header" style="display:flex;align-items:stretch;">
+          <h2 class="accordion-header">
             <button class="accordion-button ${isOpen ? '' : 'collapsed'}"
               type="button" data-bs-toggle="collapse" data-bs-target="#${colId}"
-              style="background:var(--surface);padding:.65rem 1rem;font-family:'Outfit',sans-serif;flex:1;min-width:0;">
+              style="background:var(--surface);padding:.65rem 1rem;font-family:'Outfit',sans-serif;">
               ${header}
-            </button>
-            <button class="btn btn-sm btn-outline-danger flex-shrink-0"
-              style="margin:.35rem .5rem;padding:.2rem .5rem;font-size:.78rem;align-self:center;"
-              title="Sterge Run #${rid} si toate articolele lui"
-              onclick="event.stopPropagation();deleteRun(${rid})">
-              <i class="bi bi-trash"></i>
             </button>
           </h2>
           <div id="${colId}" class="accordion-collapse collapse ${isOpen ? 'show' : ''}" data-bs-parent="#results-accordion">
@@ -488,55 +427,9 @@ async function loadResults() {
     }).join('') + '</div>';
 }
 
-/* ── Modal confirmare ────────────────────────────────────────────────── */
-let _pendingDelete = null;
-
-function confirmDelete({ title, body, onConfirm }) {
-  document.getElementById('confirm-delete-title').textContent = title;
-  document.getElementById('confirm-delete-body').textContent  = body;
-  const btn = document.getElementById('confirm-delete-btn');
-  btn.disabled = false;
-  btn.innerHTML = '<i class="bi bi-trash me-1"></i>Șterge';
-  _pendingDelete = onConfirm;
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmDelete')).show();
-}
-
-async function _doConfirmDelete() {
-  if (!_pendingDelete) return;
-  const btn   = document.getElementById('confirm-delete-btn');
-  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmDelete'));
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Se șterge…';
-  try {
-    await _pendingDelete();
-    _pendingDelete = null;
-    modal.hide();
-  } catch (e) {
-    toast(e.message || 'Eroare la ștergere', 'danger');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-trash me-1"></i>Șterge';
-  }
-}
-
-function deleteResult(id) {
-  confirmDelete({
-    title: 'Ștergi articolul?',
-    body:  'Această acțiune este ireversibilă.',
-    onConfirm: async () => { await api('DELETE', `/searches/results/${id}`); toast('Articol șters'); loadResults(); },
-  });
-}
-
-function deleteRun(id) {
-  const run   = (window._runMap || {})[id];
-  const count = (window._groups || {})[id]?.length ?? '?';
-  const topic = allTopics.find(t => t.id === run?.topic_id);
-  const name  = topic?.name ? ` · ${topic.name}` : '';
-  confirmDelete({
-    title: `Ștergi Run #${id}${name}?`,
-    body:  `Vor fi șterse ${count} articol${count === 1 ? '' : 'e'}. Acțiunea este ireversibilă.`,
-    onConfirm: async () => { await api('DELETE', `/searches/runs/${id}`); toast(`Run #${id} șters`); loadResults(); },
-  });
+async function deleteResult(id) {
+  try { await api('DELETE', `/searches/results/${id}`); toast('Rezultat sters'); loadResults(); }
+  catch (e) { toast(e.message, 'danger'); }
 }
 
 /* ── Runs ────────────────────────────────────────────────────────────── */
@@ -565,6 +458,9 @@ async function loadRuns() {
       const ms = new Date(r.finished_at) - new Date(r.started_at);
       dur = (ms / 1000).toFixed(1) + 's';
     }
+    const previewBtn = r.status === 'success' && r.results_count > 0
+      ? `<a href="/api/searches/runs/${r.id}/preview-email" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Previzualizare email"><i class="bi bi-eye"></i></a>`
+      : '';
     return '<tr>' +
       '<td><input type="checkbox" class="run-cb" value="' + r.id + '" onchange="_updateRunsDeleteBtn()"></td>' +
       '<td class="text-muted">' + r.id + '</td>' +
@@ -575,9 +471,11 @@ async function loadRuns() {
       '<td class="text-muted small">' + fmt(r.started_at) + '</td>' +
       '<td class="small">' + dur + '</td>' +
       '<td class="small text-muted" style="white-space:nowrap">' + fmtTelemetry(r) + '</td>' +
+      '<td>' + fmtCost(r) + '</td>' +
       '<td class="text-danger small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">' +
         (r.error_message ? esc(r.error_message.substring(0, 80)) : '') +
       '</td>' +
+      '<td>' + previewBtn + '</td>' +
     '</tr>';
   }).join('');
 
@@ -585,7 +483,7 @@ async function loadRuns() {
     '<table class="table table-hover bg-white rounded shadow-sm" id="runs-table">' +
       '<thead class="table-light"><tr>' +
         '<th style="width:36px"><input type="checkbox" id="runs-select-all" title="Selecteaza tot" onchange="toggleAllRuns(this)"></th>' +
-        '<th>#</th><th>Topic</th><th>Provider</th><th>Status</th><th>Articole</th><th>Inceput</th><th>Durata</th><th>Telemetrie</th><th>Eroare</th>' +
+        '<th>#</th><th>Topic</th><th>Provider</th><th>Status</th><th>Articole</th><th>Inceput</th><th>Durata</th><th>Telemetrie</th><th>Cost est.</th><th>Eroare</th><th></th>' +
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table>';
@@ -610,19 +508,14 @@ function _updateRunsDeleteBtn() {
   }
 }
 
-function deleteSelectedRuns() {
+async function deleteSelectedRuns() {
   const ids = [...document.querySelectorAll('.run-cb:checked')].map(el => +el.value);
   if (!ids.length) return;
-  confirmDelete({
-    title: `Ștergi ${ids.length} rulăr${ids.length === 1 ? 'e' : 'i'}?`,
-    body:  'Articolele aferente vor fi șterse și ele. Acțiunea este ireversibilă.',
-    onConfirm: async () => {
-      await api('DELETE', '/searches/runs', { ids });
-      toast(`${ids.length} rulăr${ids.length === 1 ? 'e șterse' : 'i șterse'}.`);
-      loadRuns();
-      loadDashboard();
-    },
-  });
+  if (!confirm(`Stergi ${ids.length} rular${ids.length === 1 ? 'e' : 'i'}? Articolele aferente vor fi sterse si ele.`)) return;
+  await api('DELETE', '/searches/runs', { ids });
+  toast(ids.length + ' rular' + (ids.length === 1 ? 'e sterse' : 'i sterse') + '.', 'success');
+  loadRuns();
+  loadDashboard();
 }
 
 
@@ -633,6 +526,11 @@ function fmtTelemetry(r) {
   if (r.tokens_input  != null) parts.push('in: ' + r.tokens_input.toLocaleString('ro-RO'));
   if (r.tokens_output != null) parts.push('out: ' + r.tokens_output.toLocaleString('ro-RO'));
   return parts.length ? parts.join(' · ') : '—';
+}
+
+function fmtCost(r) {
+  if (r.estimated_cost_usd == null) return '<span class="text-muted">—</span>';
+  return `<span class="text-muted small">$${r.estimated_cost_usd.toFixed(4)}</span>`;
 }
 
 function esc(str) {
@@ -753,6 +651,119 @@ async function loadFooterStatus() {
       set('f-lastrun', `Ultima rulare: ${d.toLocaleString('ro-RO', { timeZone: 'Europe/Bucharest' })} (${s.last_run_status})`);
     }
   } catch { /* footer e cosmetic, nu blocheaza */ }
+}
+
+/* ── Test provider ───────────────────────────────────────────────────── */
+async function testProvider() {
+  const provider = document.getElementById('topic-provider').value;
+  const btn = document.getElementById('btn-test-provider');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const res = await fetch(`/api/searches/validate-provider/${provider}`).then(r => r.json());
+    btn.disabled = false;
+    if (res.ok) {
+      btn.textContent = '✓ OK';
+      btn.className = 'btn btn-sm btn-success';
+      setTimeout(() => { btn.textContent = 'Testează'; btn.className = 'btn btn-sm btn-outline-secondary'; }, 3000);
+    } else {
+      btn.textContent = '✗ Eroare';
+      btn.className = 'btn btn-sm btn-danger';
+      toast(res.message, 'danger');
+      setTimeout(() => { btn.textContent = 'Testează'; btn.className = 'btn btn-sm btn-outline-secondary'; }, 4000);
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Testează';
+    toast('Eroare conexiune: ' + e.message, 'danger');
+  }
+}
+
+/* ── Articole (view global flat) ─────────────────────────────────────── */
+let _allArticles = [];
+
+async function loadArticles() {
+  const topicId = document.getElementById('filter-articles-topic').value;
+  const q = topicId ? `&topic_id=${topicId}` : '';
+  const el = document.getElementById('articles-list');
+  el.innerHTML = '<p class="text-muted">Se încarcă...</p>';
+  try {
+    _allArticles = await api('GET', `/searches/results?limit=5000${q}`);
+  } catch (e) {
+    el.innerHTML = `<p class="text-danger">Eroare: ${esc(e.message)}</p>`;
+    return;
+  }
+  _renderArticles();
+}
+
+function _renderArticles() {
+  const el = document.getElementById('articles-list');
+  const search = (document.getElementById('articles-search')?.value || '').toLowerCase();
+  const dedup  = document.getElementById('articles-dedup')?.checked;
+
+  let items = _allArticles;
+
+  // Deduplicare by URL
+  if (dedup) {
+    const seen = new Set();
+    items = items.filter(r => {
+      if (seen.has(r.url)) return false;
+      seen.add(r.url);
+      return true;
+    });
+  }
+
+  // Filtrare text
+  if (search) {
+    items = items.filter(r =>
+      (r.title || '').toLowerCase().includes(search) ||
+      (r.summary || '').toLowerCase().includes(search) ||
+      (r.authors || '').toLowerCase().includes(search) ||
+      (r.source || '').toLowerCase().includes(search)
+    );
+  }
+
+  const countEl = document.getElementById('articles-count');
+  if (countEl) countEl.textContent = `${items.length} / ${_allArticles.length} articole`;
+
+  if (!items.length) {
+    el.innerHTML = '<p class="text-muted">Nu există articole pentru criteriile selectate.</p>';
+    return;
+  }
+
+  const rows = items.map(r => {
+    const topic = allTopics.find(t => t.id === r.topic_id);
+    return `<tr>
+      <td><a href="${esc(r.url)}" target="_blank" style="word-break:break-word">${esc(r.title)}</a>
+        ${r.summary ? `<div class="text-muted small mt-1" style="max-width:500px">${esc(r.summary.substring(0,150))}${r.summary.length>150?'…':''}</div>` : ''}
+      </td>
+      <td class="small text-muted">${esc(r.source || '—')}</td>
+      <td class="small">${esc(r.published_date || '—')}</td>
+      <td class="small text-muted">${esc((r.authors || '').substring(0, 40))}${(r.authors||'').length>40?'…':''}</td>
+      <td>${providerBadge(r.provider || '?')}</td>
+      <td class="small text-muted">${esc(topic?.name || '#' + r.topic_id)}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <table class="table table-hover table-sm bg-white rounded shadow-sm">
+      <thead class="table-light"><tr>
+        <th>Titlu / Rezumat</th>
+        <th>Sursă</th>
+        <th>Data</th>
+        <th>Autori</th>
+        <th>Provider</th>
+        <th>Topic</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function exportArticles(format) {
+  const topicId = document.getElementById('filter-articles-topic').value;
+  const q = topicId ? `&topic_id=${topicId}` : '';
+  window.location.href = `/api/searches/results/export?format=${format}${q}`;
 }
 
 /* ── Init ────────────────────────────────────────────────────────────── */

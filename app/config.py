@@ -20,8 +20,6 @@ class Settings(BaseSettings):
     smtp_password: Optional[str] = None
     email_from: str = "Agent Articole <noreply@example.com>"
 
-    api_key: Optional[str] = None   # Dacă setat, X-API-Key header obligatoriu pentru /api/*
-
     app_secret_key: str = "dev-secret-change-in-production"
     database_url: str = "sqlite:///./agent_articole.db"
     debug: bool = False

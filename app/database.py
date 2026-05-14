@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, event as sa_event
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
@@ -7,14 +7,6 @@ engine = create_engine(
     settings.database_url,
     connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
 )
-
-if "sqlite" in settings.database_url:
-    @sa_event.listens_for(engine, "connect")
-    def _set_sqlite_pragmas(dbapi_conn, _):
-        cur = dbapi_conn.cursor()
-        cur.execute("PRAGMA journal_mode=WAL")   # reads nu blocheaza writes
-        cur.execute("PRAGMA synchronous=NORMAL") # mai rapid, sigur cu WAL
-        cur.close()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -29,46 +21,40 @@ def get_db():
 
 def init_db():
     from app import models  # noqa: F401
+    # Creeaza tabelele noi (idempotent — nu modifica tabelele existente)
     Base.metadata.create_all(bind=engine)
-    _migrate_add_columns()
-    _migrate_add_indexes()
+    # Aplica migrarile Alembic (adauga coloane noi, constrangeri etc.)
+    _run_alembic_upgrade()
 
 
-def _migrate_add_indexes():
-    """Creeaza indexurile lipsa pe tabelele existente (idempotent)."""
-    indexes = [
-        ("idx_search_results_topic_id", "search_results", "topic_id"),
-        ("idx_search_results_found_at",  "search_results", "found_at"),
-        ("idx_search_runs_topic_id",     "search_runs",    "topic_id"),
-    ]
-    import sqlalchemy
+def _run_alembic_upgrade():
+    """Ruleaza 'alembic upgrade head' programatic pentru a aplica migrarile."""
+    import logging
+    from pathlib import Path
+    from alembic.config import Config
+    from alembic import command
+    from sqlalchemy import inspect, text
+
+    logger = logging.getLogger(__name__)
+
+    alembic_cfg = Config(str(Path(__file__).parent.parent / "alembic.ini"))
+
     with engine.connect() as conn:
-        for idx_name, table, col in indexes:
-            conn.execute(sqlalchemy.text(
-                f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table}({col})"
-            ))
-        conn.commit()
+        inspector = inspect(conn)
+        has_alembic_version = "alembic_version" in inspector.get_table_names()
+        has_topics = "topics" in inspector.get_table_names()
 
+        if not has_alembic_version and has_topics:
+            # DB existent fara Alembic — stamp la baseline
+            conn.commit()
+            command.stamp(alembic_cfg, "baseline")
+            logger.info("DB existent detectat — stamped la baseline Alembic")
 
-def _migrate_add_columns():
-    """Adauga coloane noi la tabelele existente (SQLite nu suporta ALTER TABLE automat)."""
-    new_cols = [
-        ("search_runs",    "tokens_input",      "INTEGER"),
-        ("search_runs",    "tokens_output",     "INTEGER"),
-        ("search_runs",    "api_calls",         "INTEGER"),
-        ("topics",         "fallback_provider", "VARCHAR(50)"),
-        ("topics",         "run_at_time",       "VARCHAR(5)"),
-        ("topics",         "email_mode",        "VARCHAR(20) DEFAULT 'immediate'"),
-        ("topics",         "deduplicate",       "BOOLEAN DEFAULT 1"),
-        ("search_results", "relevance_score",   "REAL"),
-    ]
-    with engine.connect() as conn:
-        for table, col, col_type in new_cols:
-            existing = [r[1] for r in conn.execute(
-                __import__("sqlalchemy").text(f"PRAGMA table_info({table})")
-            )]
-            if col not in existing:
-                conn.execute(__import__("sqlalchemy").text(
-                    f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"
-                ))
-        conn.commit()
+    try:
+        command.upgrade(alembic_cfg, "head")
+        # SQLite non-transactional DDL poate lasa version la revision anterioara;
+        # stampam explicit la head dupa un upgrade reusit.
+        command.stamp(alembic_cfg, "head")
+        logger.info("Alembic upgrade head — OK")
+    except Exception as e:
+        logger.warning(f"Alembic upgrade warning: {e}")

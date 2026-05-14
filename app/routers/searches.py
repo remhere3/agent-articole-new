@@ -1,26 +1,26 @@
+import csv
+import io
 import logging
-import re
 import time
-import unicodedata
-from types import SimpleNamespace
-
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse, Response, JSONResponse
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models, schemas
 from app.config import settings
 
+# Rate limiting: timp (Unix) al ultimului trigger manual per topic_id
+_topic_last_trigger: dict[int, float] = {}
+TRIGGER_COOLDOWN = 60  # secunde
 
-def _normalize_title(title: str) -> str:
-    """Normalizeaza titlul pentru deduplicare: lowercase, fara diacritice, fara punctuatie."""
-    t = unicodedata.normalize("NFKD", title.lower())
-    t = re.sub(r"[^\w\s]", "", t)
-    return re.sub(r"\s+", " ", t).strip()
+# Pret Anthropic claude-sonnet-4-6 (Mai 2025)
+_PRICE_INPUT_PER_M = 3.0    # USD per 1M input tokens
+_PRICE_OUTPUT_PER_M = 15.0  # USD per 1M output tokens
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/searches", tags=["searches"])
@@ -49,65 +49,20 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
     telemetry: dict = {}
 
     try:
-        try:
-            articles = await _dispatch_search(topic, telemetry)
-        except Exception as primary_error:
-            if topic.fallback_provider:
-                logger.warning(
-                    f"  Provider '{topic.provider}' a eșuat: {primary_error}. "
-                    f"Încerc fallback: '{topic.fallback_provider}'"
-                )
-                fb = SimpleNamespace(
-                    id=topic.id,
-                    name=topic.name,
-                    keywords=topic.keywords,
-                    user_question=topic.user_question,
-                    days_back=topic.days_back,
-                    provider=topic.fallback_provider,
-                    fallback_provider=None,
-                    run_at_time=topic.run_at_time,
-                    email_mode=topic.email_mode,
-                    deduplicate=topic.deduplicate,
-                    active=topic.active,
-                    send_email=topic.send_email,
-                    users=topic.users,
-                    results=topic.results,
-                    runs=topic.runs,
-                    last_run_at=topic.last_run_at,
-                )
-                telemetry.clear()
-                articles = await _dispatch_search(fb, telemetry)
-            else:
-                raise
+        articles = await _dispatch_search(topic, telemetry)
 
-        # Deduplicare dupa URL si titlu normalizat (acelasi articol poate aparea la URL-uri diferite)
-        if topic.deduplicate:
-            existing_urls = {
-                r.url for r in db.query(models.SearchResult.url)
-                .filter(models.SearchResult.topic_id == topic_id)
-                .all()
-            }
-            existing_titles = {
-                _normalize_title(r.title) for r in db.query(models.SearchResult.title)
-                .filter(models.SearchResult.topic_id == topic_id)
-                .all()
-            }
-        else:
-            existing_urls: set = set()
-            existing_titles: set = set()
+        # Deduplicare cross-run: exclude articole deja salvate pentru acest topic
+        existing_urls = {
+            r[0] for r in db.query(models.SearchResult.url)
+            .filter(models.SearchResult.topic_id == topic_id)
+            .all()
+        }
+        new_articles = [a for a in articles if a.get("url") not in existing_urls]
+        skipped = len(articles) - len(new_articles)
+        if skipped:
+            logger.info(f"  → Dedup: {skipped} articole deja existente omise, {len(new_articles)} noi")
 
-        new_count = 0
-        skipped_count = 0
-        for a in articles:
-            url = a.get("url", "")
-            norm_title = _normalize_title(a.get("title", ""))
-            if topic.deduplicate and (url in existing_urls or norm_title in existing_titles):
-                skipped_count += 1
-                logger.debug(f"  [dedup] skip: {url[:80]}")
-                continue
-            existing_urls.add(url)
-            existing_titles.add(norm_title)
-            new_count += 1
+        for a in new_articles:
             result = models.SearchResult(
                 topic_id=topic_id,
                 run_id=run.id,
@@ -118,30 +73,29 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
                 published_date=a.get("published_date"),
                 summary=a.get("summary"),
                 provider=topic.provider,
-                relevance_score=a.get("relevance_score"),
             )
             db.add(result)
 
-        if not topic.deduplicate:
-            logger.info(f"  [dedup] dezactivat — toate cele {new_count} articole sunt salvate")
-        elif skipped_count:
-            logger.info(f"  [dedup] {new_count} noi, {skipped_count} duplicate sarite")
-
         run.status = "success"
-        run.results_count = new_count  # doar articolele efectiv noi
+        run.results_count = len(new_articles)
         run.finished_at = datetime.utcnow()
         run.tokens_input  = telemetry.get("tokens_input")
         run.tokens_output = telemetry.get("tokens_output")
         run.api_calls     = telemetry.get("api_calls")
+        # Estimare cost (doar pentru Anthropic care raporteaza tokeni)
+        ti, to = run.tokens_input, run.tokens_output
+        if ti and to:
+            run.estimated_cost_usd = (
+                ti / 1_000_000 * _PRICE_INPUT_PER_M +
+                to / 1_000_000 * _PRICE_OUTPUT_PER_M
+            )
         topic.last_run_at = datetime.utcnow()
         db.commit()
         db.refresh(run)
 
         elapsed = time.perf_counter() - t0
         logger.info(
-            f"╚═ Run #{run.id} SUCCESS | {new_count} noi"
-            + (f" ({skipped_count} duplicate)" if skipped_count else "")
-            + f" | {elapsed:.1f}s"
+            f"╚═ Run #{run.id} SUCCESS | {len(articles)} articole | {elapsed:.1f}s"
         )
 
         # Notificare ntfy
@@ -153,7 +107,7 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
                 topic_name=topic.name,
                 run_id=run.id,
                 status="success",
-                results_count=new_count,
+                results_count=len(articles),
                 elapsed_s=elapsed,
                 subscribers=active_users,
                 provider=topic.provider,
@@ -162,8 +116,8 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
                 api_calls=run.api_calls,
             )
 
-        # Trimite email DOAR daca exista articole noi
-        if topic.send_email and topic.users and new_count > 0 and topic.email_mode == "immediate":
+        # Trimite email daca e configurat
+        if topic.send_email and topic.users and new_articles:
             from app.services.email_service import send_report
             active_emails = [u.email for u in topic.users if u.active]
             if active_emails:
@@ -178,8 +132,9 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
                     }
                     for r in run.results
                 ]
-                telemetry = _build_telemetry(topic, run.results, elapsed, run)
-                logger.info(f"  → Trimit email catre: {active_emails} ({new_count} articole noi)")
+                telemetry = _build_telemetry(topic, new_articles, elapsed)
+                telemetry["estimated_cost_usd"] = run.estimated_cost_usd
+                logger.info(f"  → Trimit email catre: {active_emails}")
                 await send_report(
                     to_addresses=active_emails,
                     topic_name=topic.name,
@@ -191,8 +146,6 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
                     telemetry=telemetry,
                 )
                 logger.info("  → Email trimis cu succes")
-        elif topic.send_email and new_count == 0:
-            logger.info("  → Email sarit: 0 articole noi")
 
     except Exception as e:
         run.status = "error"
@@ -217,16 +170,11 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
     return run
 
 
-def _build_telemetry(
-    topic: models.Topic,
-    articles: list,
-    elapsed_s: float,
-    run: Optional[models.SearchRun] = None,
-) -> dict:
+def _build_telemetry(topic: models.Topic, articles: list, elapsed_s: float) -> dict:
     """Construieste dict cu telemetrie pentru raportul email."""
     if topic.provider == "anthropic":
         model = settings.anthropic_model
-        web_search = f"web_search_20250305 (max 8 apeluri) · {model}"
+        web_search = f"web_search_20250305 (max 5 apeluri) · {model}"
     elif topic.provider == "tavily":
         model = "—"
         web_search = "Tavily API (academic + general, 2 treceri)"
@@ -239,33 +187,14 @@ def _build_telemetry(
         model = "—"
         web_search = "—"
 
-    result: dict = {
+    return {
         "provider":    topic.provider,
         "model":       model,
         "web_search":  web_search,
         "elapsed_s":   elapsed_s,
         "found_total": len(articles),
-        "excluded":    0,
+        "excluded":    0,  # logat in servicii, nu propagat inca
     }
-    if run is not None:
-        result["tokens_input"]  = run.tokens_input
-        result["tokens_output"] = run.tokens_output
-        result["cache_read"]    = getattr(run, "cache_read", None)
-    return result
-
-
-def _keywords_for_search(topic) -> str:
-    """
-    Returneaza termenii de cautare potriviti pentru query-urile din search strategies.
-    Daca topic.keywords e gol, extrage primele 80 de caractere din user_question
-    (trunchiat la limita de cuvant) pentru a evita query-uri prea lungi.
-    """
-    if topic.keywords:
-        return topic.keywords
-    q = (topic.user_question or "").strip()
-    if len(q) <= 80:
-        return q
-    return q[:80].rsplit(" ", 1)[0]
 
 
 async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
@@ -277,7 +206,7 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
             raise ValueError("ANTHROPIC_API_KEY not configured")
         from app.services.search_anthropic import search_articles
         return await search_articles(
-            keywords=_keywords_for_search(topic),
+            keywords=topic.keywords or topic.user_question,
             days_back=topic.days_back,
             api_key=settings.anthropic_api_key,
             model=settings.anthropic_model,
@@ -290,10 +219,9 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
             raise ValueError("TAVILY_API_KEY not configured")
         from app.services.search_tavily import search_articles
         return await search_articles(
-            keywords=_keywords_for_search(topic),
+            keywords=query,
             days_back=topic.days_back,
             api_key=settings.tavily_api_key,
-            user_question=topic.user_question or None,
             telemetry=telemetry,
         )
 
@@ -302,7 +230,7 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
             raise ValueError("TAVILY_API_KEY required for ollama provider")
         from app.services.search_ollama import search_articles
         return await search_articles(
-            keywords=_keywords_for_search(topic),
+            keywords=topic.keywords or topic.user_question,
             days_back=topic.days_back,
             tavily_api_key=settings.tavily_api_key,
             ollama_base_url=settings.ollama_base_url,
@@ -323,12 +251,17 @@ async def trigger_search(topic_id: int, db: Session = Depends(get_db)):
     topic = db.get(models.Topic, topic_id)
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
-    already_running = db.query(models.SearchRun).filter(
-        models.SearchRun.topic_id == topic_id,
-        models.SearchRun.status == "running",
-    ).first()
-    if already_running:
-        raise HTTPException(status_code=409, detail=f"Run #{already_running.id} already in progress for this topic")
+
+    now = time.time()
+    last = _topic_last_trigger.get(topic_id, 0)
+    if now - last < TRIGGER_COOLDOWN:
+        remaining = int(TRIGGER_COOLDOWN - (now - last))
+        raise HTTPException(
+            status_code=429,
+            detail=f"Cooldown activ. Mai așteaptă {remaining}s înainte de a relansa căutarea."
+        )
+    _topic_last_trigger[topic_id] = now
+
     run = await _run_search(topic_id, db)
     db.refresh(run)
     return run
@@ -338,18 +271,12 @@ async def trigger_search(topic_id: int, db: Session = Depends(get_db)):
 def list_runs(
     topic_id: Optional[int] = None,
     limit: int = 50,
-    offset: int = 0,
     db: Session = Depends(get_db),
-    response: Response = None,
 ):
-    q = db.query(models.SearchRun)
+    q = db.query(models.SearchRun).order_by(models.SearchRun.id.desc())
     if topic_id:
         q = q.filter(models.SearchRun.topic_id == topic_id)
-    total = q.count()
-    items = q.order_by(models.SearchRun.id.desc()).offset(offset).limit(limit).all()
-    if response is not None:
-        response.headers["X-Total-Count"] = str(total)
-    return items
+    return q.limit(limit).all()
 
 
 @router.get("/runs/{run_id}", response_model=schemas.SearchRunOut)
@@ -360,82 +287,16 @@ def get_run(run_id: int, db: Session = Depends(get_db)):
     return run
 
 
-from fastapi.responses import StreamingResponse as _StreamingResponse
-import csv
-import io
-import json as _json
-
-
-@router.get("/results/export")
-def export_results(
-    topic_id: Optional[int] = None,
-    format: str = "csv",
-    db: Session = Depends(get_db),
-):
-    """Exportă rezultatele căutărilor în format CSV sau JSON."""
-    q = db.query(models.SearchResult).order_by(models.SearchResult.id.desc())
-    if topic_id:
-        q = q.filter(models.SearchResult.topic_id == topic_id)
-    results = q.all()
-
-    if format == "json":
-        data = [
-            {
-                "id": r.id,
-                "topic_id": r.topic_id,
-                "title": r.title,
-                "url": r.url,
-                "authors": r.authors,
-                "source": r.source,
-                "published_date": r.published_date,
-                "summary": r.summary,
-                "provider": r.provider,
-                "relevance_score": r.relevance_score,
-                "found_at": r.found_at.isoformat() if r.found_at else None,
-            }
-            for r in results
-        ]
-        return _StreamingResponse(
-            iter([_json.dumps(data, ensure_ascii=False, indent=2)]),
-            media_type="application/json",
-            headers={"Content-Disposition": "attachment; filename=articole.json"},
-        )
-
-    # CSV (default)
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["id", "topic_id", "title", "url", "authors", "source", "published_date", "summary", "provider", "relevance_score", "found_at"])
-    for r in results:
-        writer.writerow([
-            r.id, r.topic_id, r.title, r.url, r.authors or "",
-            r.source or "", r.published_date or "", r.summary or "",
-            r.provider or "", r.relevance_score or "",
-            r.found_at.isoformat() if r.found_at else "",
-        ])
-    output.seek(0)
-    return _StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=articole.csv"},
-    )
-
-
 @router.get("/results", response_model=List[schemas.SearchResultOut])
 def list_results(
     topic_id: Optional[int] = None,
     limit: int = 100,
-    offset: int = 0,
     db: Session = Depends(get_db),
-    response: Response = None,
 ):
-    q = db.query(models.SearchResult)
+    q = db.query(models.SearchResult).order_by(models.SearchResult.id.desc())
     if topic_id:
         q = q.filter(models.SearchResult.topic_id == topic_id)
-    total = q.count()
-    items = q.order_by(models.SearchResult.id.desc()).offset(offset).limit(limit).all()
-    if response is not None:
-        response.headers["X-Total-Count"] = str(total)
-    return items
+    return q.limit(limit).all()
 
 
 @router.delete("/results/{result_id}", response_model=schemas.MessageResponse)
@@ -471,3 +332,135 @@ def delete_runs_bulk(body: BulkDeleteRequest, db: Session = Depends(get_db)):
         db.delete(run)
     db.commit()
     return {"message": f"{len(deleted)} run(s) deleted"}
+
+
+@router.get("/validate-provider/{provider}")
+async def validate_provider(provider: str):
+    """Verifica daca cheia API pentru providerul specificat este configurata si functionala."""
+    if provider == "anthropic":
+        if not settings.anthropic_api_key:
+            return {"ok": False, "message": "ANTHROPIC_API_KEY nu este configurata în .env"}
+        try:
+            import anthropic as _anthropic
+            client = _anthropic.Anthropic(api_key=settings.anthropic_api_key)
+            import asyncio
+            models_list = await asyncio.to_thread(client.models.list)
+            return {"ok": True, "message": f"Anthropic OK — {len(list(models_list.data))} modele disponibile"}
+        except Exception as e:
+            return {"ok": False, "message": f"Anthropic error: {str(e)[:200]}"}
+
+    elif provider == "tavily":
+        if not settings.tavily_api_key:
+            return {"ok": False, "message": "TAVILY_API_KEY nu este configurata în .env"}
+        try:
+            from tavily import TavilyClient
+            import asyncio
+            client = TavilyClient(api_key=settings.tavily_api_key)
+            result = await asyncio.to_thread(client.search, "test", max_results=1)
+            return {"ok": True, "message": f"Tavily OK — {len(result.get('results', []))} rezultate test"}
+        except Exception as e:
+            return {"ok": False, "message": f"Tavily error: {str(e)[:200]}"}
+
+    elif provider == "ollama":
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                r = await client.get(f"{settings.ollama_base_url}/api/tags")
+                if r.status_code == 200:
+                    models_list = r.json().get("models", [])
+                    return {"ok": True, "message": f"Ollama OK — {len(models_list)} modele disponibile la {settings.ollama_base_url}"}
+                return {"ok": False, "message": f"Ollama răspuns neașteptat: HTTP {r.status_code}"}
+        except Exception as e:
+            return {"ok": False, "message": f"Ollama nu răspunde la {settings.ollama_base_url}: {str(e)[:200]}"}
+
+    return {"ok": False, "message": f"Provider necunoscut: {provider}"}
+
+
+@router.get("/runs/{run_id}/preview-email", response_class=HTMLResponse)
+def preview_email(run_id: int, db: Session = Depends(get_db)):
+    """Returneaza previzualizarea HTML a email-ului pentru un run."""
+    run = db.get(models.SearchRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    from app.services.email_service import _build_html_report
+    elapsed = None
+    if run.finished_at and run.started_at:
+        elapsed = (run.finished_at - run.started_at).total_seconds()
+
+    article_dicts = [
+        {
+            "title": r.title,
+            "url": r.url,
+            "authors": r.authors,
+            "source": r.source,
+            "published_date": r.published_date,
+            "summary": r.summary,
+        }
+        for r in run.results
+    ]
+    telemetry = {
+        "provider":    run.provider,
+        "model":       run.topic.name if run.topic else "—",
+        "web_search":  "—",
+        "elapsed_s":   elapsed,
+        "found_total": run.results_count,
+        "excluded":    0,
+        "tokens_input":  run.tokens_input,
+        "tokens_output": run.tokens_output,
+        "api_calls":     run.api_calls,
+        "estimated_cost_usd": run.estimated_cost_usd,
+    }
+    html = _build_html_report(
+        topic_name=run.topic.name if run.topic else f"Run #{run_id}",
+        keywords=run.topic.keywords if run.topic else None,
+        days_back=run.topic.days_back if run.topic else 7,
+        articles=article_dicts,
+        run_id=run_id,
+        user_question=run.topic.user_question if run.topic else None,
+        telemetry=telemetry,
+    )
+    return HTMLResponse(content=html)
+
+
+@router.get("/results/export")
+def export_results(
+    topic_id: Optional[int] = None,
+    format: str = "json",
+    db: Session = Depends(get_db),
+):
+    """Exporta rezultatele ca CSV sau JSON (fara limita artificiala)."""
+    q = db.query(models.SearchResult).order_by(models.SearchResult.id.desc())
+    if topic_id:
+        q = q.filter(models.SearchResult.topic_id == topic_id)
+    results = q.all()
+
+    if format == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "topic_id", "run_id", "title", "url", "authors",
+                         "source", "published_date", "summary", "provider", "found_at"])
+        for r in results:
+            writer.writerow([
+                r.id, r.topic_id, r.run_id, r.title, r.url, r.authors,
+                r.source, r.published_date, r.summary, r.provider,
+                r.found_at.isoformat() if r.found_at else "",
+            ])
+        filename = f"articole_topic{topic_id}.csv" if topic_id else "articole_toate.csv"
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    else:
+        data = [
+            {
+                "id": r.id, "topic_id": r.topic_id, "run_id": r.run_id,
+                "title": r.title, "url": r.url, "authors": r.authors,
+                "source": r.source, "published_date": r.published_date,
+                "summary": r.summary, "provider": r.provider,
+                "found_at": r.found_at.isoformat() if r.found_at else None,
+            }
+            for r in results
+        ]
+        return JSONResponse(content=data)
