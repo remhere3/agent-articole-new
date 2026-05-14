@@ -163,20 +163,17 @@ async def search_articles(
         try:
             fmt_prompt = (
                 f"The following text describes scientific articles found via web search. "
-                f"Extract ALL articles mentioned and output ONLY a valid JSON array.\n"
-                f"No prose, no explanation. Start with [ and end with ].\n\n"
-                f"TEXT:\n{final_text[:6000]}\n\nJSON array:"
+                f"Extract ALL articles mentioned and output ONLY a valid JSON array. "
+                f"No prose, no explanation — just the JSON array starting with [ and ending with ].\n\n"
+                f"TEXT:\n{final_text[:6000]}"
             )
             fmt_response = await asyncio.to_thread(
                 client.messages.create,
                 model=model,
                 max_tokens=4096,
-                messages=[
-                    {"role": "user", "content": fmt_prompt},
-                    {"role": "assistant", "content": "["},
-                ],
+                messages=[{"role": "user", "content": fmt_prompt}],
             )
-            fmt_text = "[" + next((b.text for b in fmt_response.content if hasattr(b, "text")), "")
+            fmt_text = next((b.text for b in fmt_response.content if hasattr(b, "text")), "")
             raw = _extract_json(fmt_text)
             if raw:
                 logger.info(f"[Anthropic] Reformatting reusit: {len(raw)} articole extrase")
