@@ -14,6 +14,13 @@ import anthropic
 logger = logging.getLogger(__name__)
 
 
+def _strip_watermarks(text: str) -> str:
+    return re.sub(
+        r'Authorized licensed use limited to:[^.]+\.\s*Downloaded on[^.]+\.\s*(?:UTC\s*)?(?:from[^.]+\.)?\s*Restrictions apply\.?',
+        '', text, flags=re.IGNORECASE
+    ).strip()
+
+
 def _date_range_str(days_back: int) -> tuple[str, str, str]:
     now = datetime.now()
     cutoff = now - timedelta(days=days_back)
@@ -182,7 +189,7 @@ async def search_articles(
             context = "\n---\n".join(tool_results_summary) or "No search results available."
             synth_prompt = (
                 f"Based on these web search results about '{keywords}', "
-                f"output ONLY a JSON array of articles published after {cutoff_date}. "
+                f"output ONLY a JSON array of articles published after {cutoff.strftime('%Y-%m-%d')}. "
                 f"No prose, just the JSON array.\n\nSearch results:\n{context[:5000]}"
             )
             synth_response = await asyncio.to_thread(
@@ -236,8 +243,10 @@ async def search_articles(
 
         pub_ok = _validate_date(a.get("published_date"), cutoff)
         if pub_ok is None:
-            logger.debug(f"[Anthropic] EXCLUS (data invalida/veche): '{title[:60]}' | {a.get('published_date')}")
+            logger.info(f"[Anthropic] EXCLUS (data invalida/veche): '{title[:60]}' | {a.get('published_date')}")
             continue
+
+        summary = _strip_watermarks(str(a.get("summary") or "").strip()) or None
 
         valid.append({
             "title":          title,
@@ -245,7 +254,7 @@ async def search_articles(
             "authors":        str(a.get("authors") or "").strip() or None,
             "source":         str(a.get("source")  or "").strip() or None,
             "published_date": pub_ok,
-            "summary":        str(a.get("summary")  or "").strip() or None,
+            "summary":        summary,
         })
 
     logger.info(f"[Anthropic] VALID dupa filtrare data: {len(valid)}/{len(raw)}")

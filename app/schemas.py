@@ -1,6 +1,16 @@
-from pydantic import BaseModel, EmailStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator, field_serializer
 from typing import Optional, List
 from datetime import datetime
+from datetime import timezone as _utc_tz
+
+
+def _localize(dt: Optional[datetime]) -> Optional[datetime]:
+    """Marcheaza datetime naiv ca UTC (valorile sunt stocate in UTC in DB)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=_utc_tz.utc)
+    return dt
 
 
 # ── User ─────────────────────────────────────────────────────────────────────
@@ -26,6 +36,10 @@ class UserOut(UserBase):
     created_at: datetime
     model_config = {"from_attributes": True}
 
+    @field_serializer("created_at")
+    def serialize_created_at(self, v: datetime) -> Optional[str]:
+        return _localize(v).isoformat() if v else None
+
 
 # ── Topic ─────────────────────────────────────────────────────────────────────
 
@@ -43,7 +57,7 @@ class TopicBase(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        allowed = {"anthropic", "tavily", "ollama"}
+        allowed = {"anthropic", "tavily", "ollama", "searxng"}
         if v not in allowed:
             raise ValueError(f"provider must be one of {allowed}")
         return v
@@ -102,6 +116,10 @@ class TopicOut(TopicBase):
     users: List[UserOut] = []
     model_config = {"from_attributes": True}
 
+    @field_serializer("created_at", "last_run_at")
+    def serialize_dt(self, v: Optional[datetime]) -> Optional[str]:
+        return _localize(v).isoformat() if v else None
+
 
 # ── Search Results ─────────────────────────────────────────────────────────────
 
@@ -118,6 +136,10 @@ class SearchResultOut(BaseModel):
     provider: Optional[str] = None
     found_at: datetime
     model_config = {"from_attributes": True}
+
+    @field_serializer("found_at")
+    def serialize_found_at(self, v: datetime) -> Optional[str]:
+        return _localize(v).isoformat() if v else None
 
 
 # ── Search Run ─────────────────────────────────────────────────────────────────
@@ -137,6 +159,10 @@ class SearchRunOut(BaseModel):
     estimated_cost_usd: Optional[float] = None
     results: List[SearchResultOut] = []
     model_config = {"from_attributes": True}
+
+    @field_serializer("started_at", "finished_at")
+    def serialize_dt(self, v: Optional[datetime]) -> Optional[str]:
+        return _localize(v).isoformat() if v else None
 
 
 # ── Generic responses ─────────────────────────────────────────────────────────

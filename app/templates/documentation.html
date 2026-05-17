@@ -27,6 +27,7 @@
   --d-orange:    #c45c00;
   --d-red:       #b5192c;
   --d-blue:      #0044aa;
+  --d-purple:    #6433b4;
 }
 
 body {
@@ -96,6 +97,7 @@ body {
 #docs-root .d-badge.orange { background:rgba(196,92,0,.12);  color: var(--d-orange); }
 #docs-root .d-badge.red    { background:rgba(181,25,44,.12); color: var(--d-red); }
 #docs-root .d-badge.gray   { background:rgba(0,0,0,.07);     color: var(--d-muted); }
+#docs-root .d-badge.purple { background:rgba(100,51,180,.12); color: var(--d-purple); }
 
 /* Section anchor */
 .d-section-anchor { scroll-margin-top: 24px; }
@@ -173,7 +175,7 @@ body {
         <tr><td><strong>Cautare articole</strong></td><td>arXiv, PubMed, Nature, Science, IEEE, ACM, bioRxiv, medRxiv si altele</td></tr>
         <tr><td><strong>Filtrare stricta data</strong></td><td>Parametru <code>days_back</code> — doar articolele din ultimele N zile</td></tr>
         <tr><td><strong>Intrebare libera</strong></td><td>Campul <code>user_question</code> permite adresarea unei intrebari in limbaj natural (protejat anti-prompt-injection)</td></tr>
-        <tr><td><strong>3 provideri</strong></td><td>Anthropic Claude, Tavily, Ollama+Tavily (local)</td></tr>
+        <tr><td><strong>4 provideri</strong></td><td>Anthropic Claude, Tavily, Ollama+Tavily (local), SearXNG+Ollama (self-hosted)</td></tr>
         <tr><td><strong>Scheduler automat</strong></td><td>APScheduler verifica la 15 min si ruleaza topicurile scadente; timeout configurabil per topic</td></tr>
         <tr><td><strong>Toate rezultatele per run</strong></td><td>Fiecare cautare salveaza toate articolele gasite; filtrarea se face doar dupa data publicarii (<code>days_back</code>), nu dupa rularile anterioare</td></tr>
         <tr><td><strong>Cost estimat</strong></td><td>Fiecare run Anthropic calculeaza costul in USD bazat pe tokens input/output ($3/$15 per million)</td></tr>
@@ -236,109 +238,125 @@ body {
       <text x="600" y="175" text-anchor="middle" fill="#99f6e4" font-size="10">Routers:  /api/users  ·  /api/topics  ·  /api/searches  ·  /api/settings  ·  /api/logs/stream (SSE)  ·  /documentation</text>
       <text x="600" y="189" text-anchor="middle" fill="#4ade80" font-size="9">SQLAlchemy ORM  ·  Pydantic v2  ·  aiosmtplib  ·  Uvicorn ASGI</text>
 
-      <!-- arrows fastapi → services (6 servicii) -->
-      <line x1="144" y1="198" x2="144" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
-      <line x1="336" y1="198" x2="336" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
-      <line x1="528" y1="198" x2="528" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
-      <line x1="720" y1="198" x2="720" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
-      <line x1="912" y1="198" x2="912" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
-      <line x1="1086" y1="198" x2="1086" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
+      <!-- arrows fastapi → services (7 servicii) -->
+      <line x1="130" y1="198" x2="130" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
+      <line x1="293" y1="198" x2="293" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
+      <line x1="456" y1="198" x2="456" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
+      <line x1="619" y1="198" x2="619" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
+      <line x1="796" y1="198" x2="796" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
+      <line x1="960" y1="198" x2="960" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
+      <line x1="1106" y1="198" x2="1106" y2="228" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
 
       <!-- ═══ SERVICES ROW ═══ -->
       <!-- search_anthropic -->
-      <rect x="53" y="230" width="182" height="64" rx="6" fill="#172554" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
-      <text x="144" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_anthropic</text>
-      <text x="144" y="267" text-anchor="middle" fill="#bfdbfe" font-size="10">Claude + web_search</text>
-      <text x="144" y="281" text-anchor="middle" fill="#93c5fd" font-size="9">tool (max 5 apeluri)</text>
-      <text x="144" y="290" text-anchor="middle" fill="#60a5fa" font-size="8">validare stricta data</text>
+      <rect x="53" y="230" width="155" height="64" rx="6" fill="#172554" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="130" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_anthropic</text>
+      <text x="130" y="267" text-anchor="middle" fill="#bfdbfe" font-size="10">Claude + web_search</text>
+      <text x="130" y="281" text-anchor="middle" fill="#93c5fd" font-size="9">tool (max 5 apeluri)</text>
+      <text x="130" y="290" text-anchor="middle" fill="#60a5fa" font-size="8">validare stricta data</text>
 
       <!-- search_tavily -->
-      <rect x="245" y="230" width="182" height="64" rx="6" fill="#78350f" stroke="#f59e0b" stroke-width="1.5" filter="url(#sh)"/>
-      <text x="336" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_tavily</text>
-      <text x="336" y="267" text-anchor="middle" fill="#fde68a" font-size="10">Tavily API  ·  days=N</text>
-      <text x="336" y="281" text-anchor="middle" fill="#fbbf24" font-size="9">2 treceri: academic+general</text>
-      <text x="336" y="290" text-anchor="middle" fill="#f59e0b" font-size="8">dedup URL · sort score</text>
+      <rect x="216" y="230" width="155" height="64" rx="6" fill="#78350f" stroke="#f59e0b" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="293" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_tavily</text>
+      <text x="293" y="267" text-anchor="middle" fill="#fde68a" font-size="10">Tavily API  ·  days=N</text>
+      <text x="293" y="281" text-anchor="middle" fill="#fbbf24" font-size="9">2 treceri: academic+general</text>
+      <text x="293" y="290" text-anchor="middle" fill="#f59e0b" font-size="8">dedup URL · sort score</text>
 
       <!-- search_ollama -->
-      <rect x="437" y="230" width="182" height="64" rx="6" fill="#14532d" stroke="#22c55e" stroke-width="1.5" filter="url(#sh)"/>
-      <text x="528" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_ollama</text>
-      <text x="528" y="267" text-anchor="middle" fill="#86efac" font-size="10">Tavily cauta</text>
-      <text x="528" y="281" text-anchor="middle" fill="#4ade80" font-size="9">Ollama rezuma local</text>
-      <text x="528" y="290" text-anchor="middle" fill="#22c55e" font-size="8">user_question suportat</text>
+      <rect x="379" y="230" width="155" height="64" rx="6" fill="#14532d" stroke="#22c55e" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="456" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_ollama</text>
+      <text x="456" y="267" text-anchor="middle" fill="#86efac" font-size="10">Tavily cauta</text>
+      <text x="456" y="281" text-anchor="middle" fill="#4ade80" font-size="9">Ollama rezuma local</text>
+      <text x="456" y="290" text-anchor="middle" fill="#22c55e" font-size="8">user_question suportat</text>
+
+      <!-- search_searxng -->
+      <rect x="542" y="230" width="155" height="64" rx="6" fill="#2d1b4e" stroke="#7c3aed" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="619" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_searxng</text>
+      <text x="619" y="267" text-anchor="middle" fill="#ddd6fe" font-size="10">SearXNG cauta</text>
+      <text x="619" y="281" text-anchor="middle" fill="#c4b5fd" font-size="9">Ollama rezuma local</text>
+      <text x="619" y="290" text-anchor="middle" fill="#a78bfa" font-size="8">self-hosted · 0 cost</text>
 
       <!-- email_service -->
-      <rect x="629" y="230" width="182" height="64" rx="6" fill="#4c1d95" stroke="#a855f7" stroke-width="1.5" filter="url(#sh)"/>
-      <text x="720" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">email_service</text>
-      <text x="720" y="267" text-anchor="middle" fill="#e9d5ff" font-size="10">aiosmtplib async</text>
-      <text x="720" y="281" text-anchor="middle" fill="#c4b5fd" font-size="9">raport HTML per topic</text>
-      <text x="720" y="290" text-anchor="middle" fill="#a855f7" font-size="8">utilizatori abonati activi</text>
+      <rect x="705" y="230" width="182" height="64" rx="6" fill="#4c1d95" stroke="#a855f7" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="796" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">email_service</text>
+      <text x="796" y="267" text-anchor="middle" fill="#e9d5ff" font-size="10">aiosmtplib async</text>
+      <text x="796" y="281" text-anchor="middle" fill="#c4b5fd" font-size="9">raport HTML per topic</text>
+      <text x="796" y="290" text-anchor="middle" fill="#a855f7" font-size="8">utilizatori abonati activi</text>
 
       <!-- ntfy_service (NEW) -->
-      <rect x="821" y="230" width="182" height="64" rx="6" fill="#4a0a1e" stroke="#f43f5e" stroke-width="1.5" filter="url(#sh)"/>
-      <text x="912" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">ntfy_service</text>
-      <text x="912" y="267" text-anchor="middle" fill="#fecdd3" font-size="10">push notification</text>
-      <text x="912" y="281" text-anchor="middle" fill="#fb7185" font-size="9">per rulare (success/error)</text>
-      <text x="912" y="290" text-anchor="middle" fill="#f43f5e" font-size="8">ntfy.sh · docker local</text>
+      <rect x="895" y="230" width="155" height="64" rx="6" fill="#4a0a1e" stroke="#f43f5e" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="972" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">ntfy_service</text>
+      <text x="972" y="267" text-anchor="middle" fill="#fecdd3" font-size="10">push notification</text>
+      <text x="972" y="281" text-anchor="middle" fill="#fb7185" font-size="9">per rulare (success/error)</text>
+      <text x="972" y="290" text-anchor="middle" fill="#f43f5e" font-size="8">ntfy.sh · docker local</text>
 
       <!-- log_stream -->
-      <rect x="1013" y="230" width="147" height="64" rx="6" fill="#052e16" stroke="#22c55e" stroke-width="2" filter="url(#sh)"/>
-      <text x="1086" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">log_stream (SSE)</text>
-      <text x="1086" y="267" text-anchor="middle" fill="#86efac" font-size="10">deque 500 linii buffer</text>
-      <text x="1086" y="281" text-anchor="middle" fill="#4ade80" font-size="9">queue per client</text>
-      <text x="1086" y="290" text-anchor="middle" fill="#22c55e" font-size="8">keepalive 15s</text>
+      <rect x="1058" y="230" width="142" height="64" rx="6" fill="#052e16" stroke="#22c55e" stroke-width="2" filter="url(#sh)"/>
+      <text x="1129" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">log_stream (SSE)</text>
+      <text x="1129" y="267" text-anchor="middle" fill="#86efac" font-size="10">deque 500 linii buffer</text>
+      <text x="1129" y="281" text-anchor="middle" fill="#4ade80" font-size="9">queue per client</text>
+      <text x="1129" y="290" text-anchor="middle" fill="#22c55e" font-size="8">keepalive 15s</text>
 
       <!-- arrows services → external -->
-      <line x1="144" y1="294" x2="107" y2="360" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#a)"/>
-      <line x1="144" y1="294" x2="271" y2="360" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ab)"/>
-      <line x1="336" y1="294" x2="435" y2="360" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ay)"/>
-      <line x1="528" y1="294" x2="435" y2="360" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ag)"/>
-      <line x1="528" y1="294" x2="599" y2="360" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ag)"/>
-      <line x1="720" y1="294" x2="763" y2="360" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a)"/>
-      <line x1="912" y1="294" x2="927" y2="360" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ao)"/>
-      <line x1="1086" y1="294" x2="1091" y2="360" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ag)"/>
+      <line x1="130" y1="294" x2="90" y2="360" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#a)"/>
+      <line x1="130" y1="294" x2="219" y2="360" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ab)"/>
+      <line x1="293" y1="294" x2="352" y2="360" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ay)"/>
+      <line x1="456" y1="294" x2="352" y2="360" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ag)"/>
+      <line x1="456" y1="294" x2="485" y2="360" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ag)"/>
+      <line x1="619" y1="294" x2="618" y2="360" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ag)"/>
+      <line x1="619" y1="294" x2="485" y2="360" stroke="#a78bfa" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#ag)"/>
+      <line x1="796" y1="294" x2="751" y2="360" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a)"/>
+      <line x1="972" y1="294" x2="884" y2="360" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ao)"/>
+      <line x1="1129" y1="294" x2="1060" y2="360" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ag)"/>
 
       <!-- ═══ EXTERNAL / DB ROW ═══ -->
       <!-- SQLite -->
-      <rect x="30" y="362" width="148" height="62" rx="8" fill="#1e293b" stroke="#64748b" stroke-width="2" filter="url(#sh)"/>
-      <text x="104" y="385" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">SQLite DB</text>
-      <text x="104" y="401" text-anchor="middle" fill="#cbd5e1" font-size="10">users · topics · runs</text>
-      <text x="104" y="415" text-anchor="middle" fill="#94a3b8" font-size="9">results · app_settings</text>
+      <rect x="30" y="362" width="120" height="62" rx="8" fill="#1e293b" stroke="#64748b" stroke-width="2" filter="url(#sh)"/>
+      <text x="90" y="385" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">SQLite DB</text>
+      <text x="90" y="401" text-anchor="middle" fill="#cbd5e1" font-size="10">users · topics · runs</text>
+      <text x="90" y="415" text-anchor="middle" fill="#94a3b8" font-size="9">results · app_settings</text>
 
       <!-- Anthropic API -->
-      <rect x="188" y="362" width="152" height="62" rx="8" fill="#172554" stroke="#3b82f6" stroke-width="2.5" filter="url(#sh)"/>
-      <text x="264" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Anthropic API</text>
-      <text x="264" y="399" text-anchor="middle" fill="#bfdbfe" font-size="10">claude-sonnet-4-x</text>
-      <text x="264" y="414" text-anchor="middle" fill="#93c5fd" font-size="9">web_search_20250305</text>
+      <rect x="155" y="362" width="128" height="62" rx="8" fill="#172554" stroke="#3b82f6" stroke-width="2.5" filter="url(#sh)"/>
+      <text x="219" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Anthropic API</text>
+      <text x="219" y="399" text-anchor="middle" fill="#bfdbfe" font-size="10">claude-sonnet-4-x</text>
+      <text x="219" y="414" text-anchor="middle" fill="#93c5fd" font-size="9">web_search_20250305</text>
 
       <!-- Tavily API -->
-      <rect x="350" y="362" width="152" height="62" rx="8" fill="#451a03" stroke="#f59e0b" stroke-width="2" filter="url(#sh)"/>
-      <text x="426" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Tavily API</text>
-      <text x="426" y="399" text-anchor="middle" fill="#fde68a" font-size="10">search academic</text>
-      <text x="426" y="414" text-anchor="middle" fill="#fbbf24" font-size="9">days=N · max_results</text>
+      <rect x="288" y="362" width="128" height="62" rx="8" fill="#451a03" stroke="#f59e0b" stroke-width="2" filter="url(#sh)"/>
+      <text x="352" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Tavily API</text>
+      <text x="352" y="399" text-anchor="middle" fill="#fde68a" font-size="10">search academic</text>
+      <text x="352" y="414" text-anchor="middle" fill="#fbbf24" font-size="9">days=N · max_results</text>
 
       <!-- Ollama local -->
-      <rect x="512" y="362" width="152" height="62" rx="8" fill="#14532d" stroke="#22c55e" stroke-width="2" filter="url(#sh)"/>
-      <text x="588" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Ollama (local)</text>
-      <text x="588" y="399" text-anchor="middle" fill="#86efac" font-size="10">llama3 · mistral etc.</text>
-      <text x="588" y="414" text-anchor="middle" fill="#4ade80" font-size="9">fara cost LLM</text>
+      <rect x="421" y="362" width="128" height="62" rx="8" fill="#14532d" stroke="#22c55e" stroke-width="2" filter="url(#sh)"/>
+      <text x="485" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Ollama (local)</text>
+      <text x="485" y="399" text-anchor="middle" fill="#86efac" font-size="10">llama3 · mistral etc.</text>
+      <text x="485" y="414" text-anchor="middle" fill="#4ade80" font-size="9">fara cost LLM</text>
+
+      <!-- SearXNG Server -->
+      <rect x="554" y="362" width="128" height="62" rx="8" fill="#2d1b4e" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+      <text x="618" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">SearXNG</text>
+      <text x="618" y="399" text-anchor="middle" fill="#ddd6fe" font-size="10">self-hosted (retea)</text>
+      <text x="618" y="414" text-anchor="middle" fill="#c4b5fd" font-size="9">SEARXNG_BASE_URL</text>
 
       <!-- SMTP -->
-      <rect x="674" y="362" width="152" height="62" rx="8" fill="#4c1d95" stroke="#a855f7" stroke-width="2" filter="url(#sh)"/>
-      <text x="750" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">SMTP Server</text>
-      <text x="750" y="399" text-anchor="middle" fill="#e9d5ff" font-size="10">Gmail · SendGrid</text>
-      <text x="750" y="414" text-anchor="middle" fill="#c4b5fd" font-size="9">TLS · starttls</text>
+      <rect x="687" y="362" width="128" height="62" rx="8" fill="#4c1d95" stroke="#a855f7" stroke-width="2" filter="url(#sh)"/>
+      <text x="751" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">SMTP Server</text>
+      <text x="751" y="399" text-anchor="middle" fill="#e9d5ff" font-size="10">Gmail · SendGrid</text>
+      <text x="751" y="414" text-anchor="middle" fill="#c4b5fd" font-size="9">TLS · starttls</text>
 
       <!-- ntfy Server (NOU) -->
-      <rect x="836" y="362" width="152" height="62" rx="8" fill="#4a0a1e" stroke="#f43f5e" stroke-width="2" filter="url(#sh)"/>
-      <text x="912" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">ntfy Server</text>
-      <text x="912" y="399" text-anchor="middle" fill="#fecdd3" font-size="10">ntfy.sh / Docker local</text>
-      <text x="912" y="414" text-anchor="middle" fill="#fb7185" font-size="9">push notifications</text>
+      <rect x="820" y="362" width="128" height="62" rx="8" fill="#4a0a1e" stroke="#f43f5e" stroke-width="2" filter="url(#sh)"/>
+      <text x="884" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">ntfy Server</text>
+      <text x="884" y="399" text-anchor="middle" fill="#fecdd3" font-size="10">ntfy.sh / Docker local</text>
+      <text x="884" y="414" text-anchor="middle" fill="#fb7185" font-size="9">push notifications</text>
 
       <!-- Browser SSE back -->
-      <rect x="998" y="362" width="172" height="62" rx="8" fill="#052e16" stroke="#22c55e" stroke-width="2.5" filter="url(#sh)"/>
-      <text x="1084" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Browser Log Panel</text>
-      <text x="1084" y="399" text-anchor="middle" fill="#86efac" font-size="10">EventSource SSE</text>
-      <text x="1084" y="414" text-anchor="middle" fill="#4ade80" font-size="9">reconectare 3s · color-coded</text>
+      <rect x="953" y="362" width="215" height="62" rx="8" fill="#052e16" stroke="#22c55e" stroke-width="2.5" filter="url(#sh)"/>
+      <text x="1060" y="383" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">Browser Log Panel</text>
+      <text x="1060" y="399" text-anchor="middle" fill="#86efac" font-size="10">EventSource SSE</text>
+      <text x="1060" y="414" text-anchor="middle" fill="#4ade80" font-size="9">reconectare 3s · color-coded</text>
 
       <!-- ═══ LEGENDA ═══ -->
       <rect x="30" y="440" width="1140" height="72" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>
@@ -357,6 +375,8 @@ body {
       <text x="731" y="477" fill="#f1f5f9" font-size="10">SQLite DB</text>
       <rect x="822" y="466" width="13" height="13" rx="2" fill="#134e4a" stroke="#14b8a6" stroke-width="1.5"/>
       <text x="841" y="477" fill="#f1f5f9" font-size="10">FastAPI / APScheduler</text>
+      <rect x="990" y="466" width="13" height="13" rx="2" fill="#2d1b4e" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="1009" y="477" fill="#f1f5f9" font-size="10">SearXNG self-hosted</text>
       <line x1="52"  y1="495" x2="102" y2="495" stroke="#94a3b8" stroke-width="2" marker-end="url(#a)"/>
       <text x="110" y="499" fill="#f1f5f9" font-size="10">apel direct</text>
       <line x1="262" y1="495" x2="312" y2="495" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a)"/>
@@ -370,7 +390,7 @@ body {
 <div class="d-card">
   <div class="d-card-header"><i class="bi bi-arrow-repeat me-1"></i>Flux cautare — de la scheduler la email</div>
   <div class="d-card-body" style="padding:.75rem;overflow-x:auto;">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 840" style="width:100%;max-width:1040px;display:block;margin:0 auto;" font-family="'Inconsolata','Courier New',monospace">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 840" style="width:100%;max-width:1280px;display:block;margin:0 auto;" font-family="'Inconsolata','Courier New',monospace">
       <defs>
         <marker id="fa"  markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#94a3b8"/></marker>
         <marker id="fab" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#60a5fa"/></marker>
@@ -381,10 +401,10 @@ body {
         <filter id="fsh"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.6)"/></filter>
       </defs>
 
-      <rect width="1040" height="840" fill="#0a0f1e"/>
+      <rect width="1280" height="840" fill="#0a0f1e"/>
       <marker id="fan" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#f43f5e"/></marker>
       <text x="520" y="30" text-anchor="middle" fill="#f1f5f9" font-size="17" font-weight="bold" letter-spacing="2">FLUXUL UNEI CAUTARI</text>
-      <line x1="80" y1="40" x2="960" y2="40" stroke="#475569" stroke-width="1.5"/>
+      <line x1="80" y1="40" x2="1200" y2="40" stroke="#475569" stroke-width="1.5"/>
 
       <!-- Column headers -->
       <text x="200" y="60" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="bold" letter-spacing="1">TRIGGER</text>
@@ -392,6 +412,7 @@ body {
       <text x="850" y="60" text-anchor="middle" fill="#a855f7" font-size="11" font-weight="bold" letter-spacing="1">OUTPUT</text>
       <line x1="380" y1="50" x2="380" y2="800" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="6,4"/>
       <line x1="700" y1="50" x2="700" y2="800" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="6,4"/>
+      <line x1="960" y1="50" x2="960" y2="800" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6" opacity="0.5"/>
 
       <!-- 1. Trigger: Scheduler sau Manual -->
       <rect x="56" y="72" width="288" height="54" rx="8" fill="#1e3a8a" stroke="#60a5fa" stroke-width="2" filter="url(#fsh)"/>
@@ -435,7 +456,7 @@ body {
       <!-- 5. Provider branch -->
       <polygon points="520,236 624,258 520,280 416,258" fill="#78350f" stroke="#f59e0b" stroke-width="2"/>
       <text x="520" y="254" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">provider?</text>
-      <text x="520" y="270" text-anchor="middle" fill="#fde68a" font-size="9">anthropic | tavily | ollama</text>
+      <text x="520" y="270" text-anchor="middle" fill="#fde68a" font-size="9">anthropic | tavily | ollama | searxng</text>
 
       <!-- anthropic branch -->
       <line x1="416" y1="258" x2="200" y2="258" stroke="#60a5fa" stroke-width="2" marker-end="url(#fab)"/>
@@ -458,18 +479,29 @@ body {
       <!-- ollama branch -->
       <line x1="624" y1="258" x2="840" y2="258" stroke="#4ade80" stroke-width="2" marker-end="url(#fag)"/>
       <text x="730" y="250" fill="#4ade80" font-size="9">ollama</text>
-      <rect x="696" y="280" width="296" height="70" rx="6" fill="#14532d" stroke="#22c55e" stroke-width="2" filter="url(#fsh)"/>
-      <text x="844" y="300" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_ollama</text>
-      <text x="844" y="316" text-anchor="middle" fill="#86efac" font-size="10">Tavily cauta articole</text>
-      <text x="844" y="330" text-anchor="middle" fill="#4ade80" font-size="9">Ollama (local) rezuma fiecare articol</text>
-      <text x="844" y="342" text-anchor="middle" fill="#22c55e" font-size="8">TAVILY_API_KEY + Ollama pornit</text>
+      <rect x="696" y="280" width="240" height="70" rx="6" fill="#14532d" stroke="#22c55e" stroke-width="2" filter="url(#fsh)"/>
+      <text x="816" y="300" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_ollama</text>
+      <text x="816" y="316" text-anchor="middle" fill="#86efac" font-size="10">Tavily cauta articole</text>
+      <text x="816" y="330" text-anchor="middle" fill="#4ade80" font-size="9">Ollama (local) rezuma fiecare articol</text>
+      <text x="816" y="342" text-anchor="middle" fill="#22c55e" font-size="8">TAVILY_API_KEY + Ollama pornit</text>
+
+      <!-- searxng branch -->
+      <line x1="624" y1="258" x2="1060" y2="258" stroke="#a78bfa" stroke-width="2" marker-end="url(#fag)"/>
+      <text x="850" y="250" fill="#a78bfa" font-size="9">searxng</text>
+      <rect x="964" y="280" width="240" height="70" rx="6" fill="#2d1b4e" stroke="#7c3aed" stroke-width="2" filter="url(#fsh)"/>
+      <text x="1084" y="300" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_searxng</text>
+      <text x="1084" y="316" text-anchor="middle" fill="#ddd6fe" font-size="10">SearXNG cauta articole</text>
+      <text x="1084" y="330" text-anchor="middle" fill="#c4b5fd" font-size="9">Ollama (local) rezuma</text>
+      <text x="1084" y="342" text-anchor="middle" fill="#a78bfa" font-size="8">SEARXNG_BASE_URL + Ollama</text>
 
       <!-- arrows providers → validation -->
       <line x1="200" y1="350" x2="200" y2="396" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
       <line x1="200" y1="396" x2="444" y2="414" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
       <line x1="520" y1="370" x2="520" y2="414" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
-      <line x1="844" y1="350" x2="844" y2="396" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
-      <line x1="844" y1="396" x2="596" y2="414" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
+      <line x1="816" y1="350" x2="816" y2="396" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
+      <line x1="816" y1="396" x2="596" y2="414" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
+      <line x1="1084" y1="350" x2="1084" y2="396" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
+      <line x1="1084" y1="396" x2="690" y2="414" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#fa)"/>
 
       <!-- 6. Validare data Python -->
       <rect x="350" y="416" width="340" height="60" rx="6" fill="#3b0764" stroke="#a855f7" stroke-width="2" filter="url(#fsh)"/>
@@ -525,9 +557,9 @@ body {
       <line x1="848" y1="760" x2="690" y2="760" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="4,3"/>
 
       <!-- Legenda -->
-      <rect x="30" y="800" width="980" height="30" rx="4" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
-      <text x="520" y="813" text-anchor="middle" fill="#475569" font-size="8">Trigger manual: POST /api/searches/run/{topic_id}  ·  Trigger automat: APScheduler (AsyncIOScheduler)  ·  Eroare → run.status="error" + ntfy notificat</text>
-      <text x="520" y="824" text-anchor="middle" fill="#475569" font-size="8">Pas ntfy: se executa intotdeauna dupa Salvare (success sau error), daca NTFY_ENABLED=true  ·  Pas email: doar daca topic.send_email=true si exista utilizatori activi</text>
+      <rect x="30" y="800" width="1220" height="30" rx="4" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+      <text x="640" y="813" text-anchor="middle" fill="#475569" font-size="8">Trigger manual: POST /api/searches/run/{topic_id}  ·  Trigger automat: APScheduler (AsyncIOScheduler)  ·  Eroare → run.status="error" + ntfy notificat</text>
+      <text x="640" y="824" text-anchor="middle" fill="#475569" font-size="8">Pas ntfy: se executa intotdeauna dupa Salvare (success sau error), daca NTFY_ENABLED=true  ·  Pas email: doar daca topic.send_email=true si exista utilizatori activi</text>
     </svg>
   </div>
 </div>
@@ -581,6 +613,13 @@ body {
           <td>15–60s</td>
           <td><code>TAVILY_API_KEY</code> + Ollama instalat</td>
         </tr>
+        <tr>
+          <td><span class="d-badge purple">searxng</span></td>
+          <td>SearXNG cauta → Ollama rezuma local (self-hosted, fara costuri externe)</td>
+          <td>0</td>
+          <td>15–60s</td>
+          <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
+        </tr>
       </tbody>
     </table>
     <div class="d-card-body" style="padding-top:.5rem;display:flex;flex-direction:column;gap:.75rem;">
@@ -598,6 +637,13 @@ body {
           Providerul <code>ollama</code> din aceasta aplicatie foloseste <strong>Tavily</strong> pentru cautarea web
           si trimite rezultatele catre modelul local doar pentru <strong>rezumare si structurare</strong>.
           Prin urmare, <code>TAVILY_API_KEY</code> este obligatorie si pentru <code>ollama</code>.
+        </p>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          Similar, providerul <code>searxng</code> <strong>nu are web search nativ in model</strong> —
+          <strong>SearXNG</strong> (self-hosted pe retea) face cautarea web in locul lui Tavily, fara cheie API externa,
+          iar <strong>Ollama</strong> (local) preia rezultatele si le rezuma. Modelul Ollama nu cauta nimic pe cont propriu.
+          Prin urmare, <code>TAVILY_API_KEY</code> nu este necesara pentru <code>searxng</code>, dar
+          <code>SEARXNG_BASE_URL</code> si Ollama local trebuie sa fie disponibile.
         </p>
       </div>
 
@@ -625,6 +671,12 @@ body {
             <td>Ollama local (<code>gemma4:e4b</code>, <code>llama3</code> etc.)</td>
             <td><span class="d-badge red">Da</span></td>
           </tr>
+          <tr>
+            <td><span class="d-badge purple">searxng</span></td>
+            <td>SearXNG self-hosted (fara cheie API)</td>
+            <td>Ollama local</td>
+            <td><span class="d-badge gray">Nu</span> (<code>SEARXNG_BASE_URL</code>)</td>
+          </tr>
         </tbody>
       </table>
 
@@ -645,7 +697,7 @@ body {
 
       <!-- Tabel comparatie completa -->
       <div style="margin-top:.25rem;">
-        <p style="font-size:.84rem;margin-bottom:.5rem;"><strong>Comparatie completa cei 3 provideri:</strong></p>
+        <p style="font-size:.84rem;margin-bottom:.5rem;"><strong>Comparatie completa cei 4 provideri:</strong></p>
         <table class="d-table">
           <thead>
             <tr>
@@ -659,6 +711,9 @@ body {
               <th style="background:#14532d;color:#86efac;font-size:.85rem;letter-spacing:.06em;text-align:center;">
                 <i class="bi bi-cpu me-1"></i>OLLAMA
               </th>
+              <th style="background:#2d1b4e;color:#ddd6fe;font-size:.85rem;letter-spacing:.06em;text-align:center;">
+                <i class="bi bi-search me-1"></i>SEARXNG
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -667,11 +722,13 @@ body {
               <td>Claude (<code>web_search_20250305</code> nativ, max 5 apeluri)</td>
               <td>Tavily API</td>
               <td>Tavily API <em>(identic cu tavily)</em></td>
+              <td>SearXNG API (self-hosted, retea locala)</td>
             </tr>
             <tr>
               <td><strong>Proceseaza rezultatele</strong></td>
               <td>Claude — sintetizeaza, extrage, scrie summary-uri</td>
               <td>Python direct — extrage titlu, URL, data, primele 600 chars din snippet</td>
+              <td>Ollama local — rescrie summary-urile cu LLM</td>
               <td>Ollama local — rescrie summary-urile cu LLM</td>
             </tr>
             <tr>
@@ -679,23 +736,27 @@ body {
               <td>Da — Claude Sonnet (cloud)</td>
               <td>Nu</td>
               <td>Da — llama3, gemma4, mistral etc. (local / cloud)</td>
+              <td>Da — llama3, gemma4, mistral etc. (local)</td>
             </tr>
             <tr>
               <td><strong>Controlul domeniilor</strong></td>
               <td>Sugestie in prompt <em>(negarantat)</em> — Claude decide ce site-uri viziteaza</td>
               <td>Lista exacta <code>ACADEMIC_DOMAINS</code>, respectata 100%</td>
               <td>Lista exacta <code>ACADEMIC_DOMAINS</code> (prin Tavily)</td>
+              <td>Motoarele configurate in SearXNG (PubMed, arXiv etc.)</td>
             </tr>
             <tr>
               <td><strong>Acoperire web</strong></td>
               <td>Orice site indexat — poate gasi si surse neacademice</td>
               <td>Doar domeniile din <code>ACADEMIC_DOMAINS</code></td>
               <td>Doar domeniile din <code>ACADEMIC_DOMAINS</code></td>
+              <td>Depinde de motoarele activate in SearXNG</td>
             </tr>
             <tr>
               <td><strong>Rezultate tipice / run</strong></td>
               <td>5–15 articole</td>
               <td>15–30+ articole</td>
+              <td>10–25 articole</td>
               <td>10–25 articole</td>
             </tr>
             <tr>
@@ -703,30 +764,35 @@ body {
               <td>Foarte buna — Claude scrie in limbaj natural coerent</td>
               <td>Snippet brut, nereformat</td>
               <td>Buna — LLM local rescrie, mai coerente decat Tavily raw</td>
+              <td>Buna — LLM local rescrie</td>
             </tr>
             <tr>
               <td><strong>Cost / run</strong></td>
               <td>~$0.01–0.05 (tokens Anthropic)</td>
               <td>~$0.001 (doar Tavily)</td>
               <td>~$0.001 (Tavily) + CPU/GPU local</td>
+              <td>0 (self-hosted)</td>
             </tr>
             <tr>
               <td><strong>Viteza</strong></td>
               <td>15–90s (depinde de complexitate)</td>
               <td>5–15s</td>
               <td>15–60s (depinde de model si hardware)</td>
+              <td>15–60s</td>
             </tr>
             <tr>
               <td><strong>Necesita</strong></td>
               <td><code>ANTHROPIC_API_KEY</code></td>
               <td><code>TAVILY_API_KEY</code></td>
               <td><code>TAVILY_API_KEY</code> + Ollama instalat</td>
+              <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
             </tr>
             <tr>
               <td><strong>Cand il folosesti</strong></td>
               <td>Intrebari complexe, sinteza tematica, domenii nise unde Tavily nu stie sa caute</td>
               <td>Volum maxim, surse garantat academice, viteza, cost minim</td>
               <td>Vrei summary-uri mai bune decat Tavily raw, fara costuri Anthropic, ai GPU/CPU disponibil</td>
+              <td>Self-hosted complet, fara costuri API externe, retea locala cu SearXNG</td>
             </tr>
           </tbody>
         </table>
@@ -734,10 +800,11 @@ body {
 
       <!-- Nota filtrare data -->
       <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.2);border-left:3px solid #c45c00;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
-        <strong style="color:#c45c00;"><i class="bi bi-calendar-check me-1"></i>Filtrare data stricta</strong> —
-        toti providerii aplica filtrare in doua etape: parametrul nativ al API-ului (<code>days=N</code> la Tavily,
-        prompt cu data explicita la Claude) <strong>si</strong> validare suplimentara in Python post-procesare.
-        Articolele fara data confirmata sau mai vechi de <code>days_back</code> zile sunt excluse.
+        <strong style="color:#c45c00;"><i class="bi bi-calendar-check me-1"></i>Filtrare data stricta — doua etape garantate</strong><br>
+        <strong>Etapa 1 (API nativ):</strong> <code>days=N</code> la Tavily; prompt cu data explicita la Claude; filtru client-side la SearXNG (nu suporta <code>time_range</code> pe toate motoarele).<br>
+        <strong>Etapa 2 (Python post-procesare):</strong> dupa ce LLM-ul sau API-ul returneaza articolele, Python re-valideaza fiecare data cu <code>_parse_date()</code> si exclude strict orice articol cu <code>pub_dt &lt; cutoff</code>. Aplicat la toti cei 4 provideri.<br>
+        Articolele fara data confirmata sunt acceptate doar daca provin de pe domenii academice recunoscute (<code>ACADEMIC_DOMAINS</code>).
+        Summary-urile sunt curatate automat de watermarks IEEE (<code>_strip_watermarks()</code>).
       </div>
 
     </div>
@@ -902,6 +969,11 @@ TOPICS = [
             <td>10–25 articole</td>
             <td>Tavily pentru volum + rezumare locala fara cost LLM</td>
           </tr>
+          <tr>
+            <td><span class="d-badge purple">searxng</span></td>
+            <td>10–25 articole</td>
+            <td>Self-hosted complet, fara costuri externe; SearXNG cauta, Ollama rezuma</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -1013,7 +1085,7 @@ httpx.delete(f"{BASE}/users/1")</pre>
         <tr><td><code>days_back</code></td><td>int</td><td>7</td><td>Articole publicate in ultimele N zile (1–365)</td></tr>
         <tr><td><code>periodicity_hours</code></td><td>float</td><td>24</td><td>Interval rulare automata (ore, min 0.5)</td></tr>
         <tr><td><code>timeout_seconds</code></td><td>int</td><td>300</td><td>Timeout maxim pentru o cautare in secunde (30–3600). Dupa expirare, run-ul e marcat cu status <code>error</code>.</td></tr>
-        <tr><td><code>provider</code></td><td>string</td><td>anthropic</td><td><code>anthropic</code> / <code>tavily</code> / <code>ollama</code></td></tr>
+        <tr><td><code>provider</code></td><td>string</td><td>anthropic</td><td><code>anthropic</code> / <code>tavily</code> / <code>ollama</code> / <code>searxng</code></td></tr>
         <tr><td><code>active</code></td><td>bool</td><td>true</td><td>Include in scheduler automat</td></tr>
         <tr><td><code>send_email</code></td><td>bool</td><td>true</td><td>Trimite email dupa cautare</td></tr>
         <tr><td><code>user_ids</code></td><td>list[int]</td><td>[]</td><td>Utilizatori abonati</td></tr>
@@ -1252,9 +1324,14 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
               <td>Cereri Tavily + 1 apel LLM local pentru rezumare</td>
             </tr>
             <tr>
+              <td><code>api_calls</code></td>
+              <td><span class="d-badge purple">searxng</span></td>
+              <td>Cereri SearXNG (2 interogari) + 1 apel LLM local Ollama pentru rezumare</td>
+            </tr>
+            <tr>
               <td><code>tokens_input</code> / <code>tokens_output</code> / <code>estimated_cost_usd</code></td>
-              <td><span class="d-badge orange">tavily</span> <span class="d-badge green">ollama</span></td>
-              <td><code>null</code> — Tavily si Ollama nu raporteaza tokeni, deci costul nu se calculeaza</td>
+              <td><span class="d-badge orange">tavily</span> <span class="d-badge green">ollama</span> <span class="d-badge purple">searxng</span></td>
+              <td><code>null</code> — Tavily, Ollama si SearXNG nu raporteaza tokeni, deci costul nu se calculeaza</td>
             </tr>
           </tbody>
         </table>
@@ -1275,7 +1352,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             </tr>
             <tr>
               <td><code>GET /validate-provider/{provider}</code></td>
-              <td>Testeaza conectivitatea live: Anthropic (<code>models.list()</code>), Tavily (cautare test), Ollama (<code>/api/tags</code>). Returneaza <code>{"ok": bool, "message": "..."}</code></td>
+              <td>Testeaza conectivitatea live: Anthropic (<code>models.list()</code>), Tavily (cautare test), Ollama (<code>/api/tags</code>), SearXNG (<code>GET /search?format=json</code> test). Returneaza <code>{"ok": bool, "message": "..."}</code></td>
             </tr>
           </tbody>
         </table>
@@ -1349,6 +1426,26 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
           <td>11</td>
           <td><strong>Robustete prompt Anthropic</strong> — prompt simplificat (fara sectiuni all-caps care declansau reasoning-ul), traducere automata a topicului in engleza, fallback synthesis call daca modelul nu genereaza text final, fallback reformatting call daca returneaza proza in loc de JSON</td>
           <td>Cautarile cu topicuri in romana sau cu subiecte niche returneaza articole in loc de <code>[]</code></td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td><strong>Stergere watermarks IEEE</strong> — regex <code>_strip_watermarks()</code> aplicat pe summary-urile returnate de toti cei 4 provideri; elimina textul institutional <em>"Authorized licensed use limited to: ... Restrictions apply."</em></td>
+          <td>Summary-urile nu mai contin informatii de licentiere IEEE irelevante pentru continutul stiintific</td>
+        </tr>
+        <tr>
+          <td>13</td>
+          <td><strong>Filtru final garantat post-LLM</strong> — dupa ce LLM-ul (Claude / Ollama) returneaza JSON, Python re-valideaza data fiecarui articol si elimina orice intrare cu <code>pub_dt &lt; cutoff</code>; aplicat la <span class="d-badge blue" style="font-size:.72rem">anthropic</span> <span class="d-badge green" style="font-size:.72rem">ollama</span> <span class="d-badge purple" style="font-size:.72rem">searxng</span></td>
+          <td>LLM-ul poate ignora ocazional instructiunea de filtrare din prompt; filtrul Python garanteaza ca articolele prea vechi nu ajung in BD</td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td><strong>Limita batch 12 articole catre LLM</strong> — inainte de a trimite rezultatele la Ollama pentru rezumare, lista e trunchiatata la maxim 12 articole; aplicat la <span class="d-badge green" style="font-size:.72rem">ollama</span> <span class="d-badge purple" style="font-size:.72rem">searxng</span></td>
+          <td>Previne timeout-ul Ollama (120s) cauzat de prompt-uri prea lungi cand Tavily / SearXNG returneaza 20+ articole</td>
+        </tr>
+        <tr>
+          <td>15</td>
+          <td><strong>Fix <code>_parse_date</code> — lungimi hardcodate</strong> — inlocuieste <code>text[:len(fmt)]</code> cu lungimi exacte <code>(20, 19, 10, 7)</code>; <code>len("%Y-%m-%dT%H:%M:%S")</code> = 17, nu 19 — cauza radacina pentru care filtrarea datelor nu functiona la toti providerii</td>
+          <td>Toate datele de forma <code>2026-03-28T00:00:00</code> sunt acum parsate corect; filtrarea <code>days_back</code> functioneaza garantat la <span class="d-badge orange" style="font-size:.72rem">tavily</span> <span class="d-badge green" style="font-size:.72rem">ollama</span> <span class="d-badge purple" style="font-size:.72rem">searxng</span></td>
         </tr>
       </tbody>
     </table>
@@ -1595,6 +1692,7 @@ Provider: anthropic · Run #37</div>
         <tr><td><code>OLLAMA_BASE_URL</code></td><td>http://localhost:11434</td><td>URL server Ollama</td></tr>
         <tr><td><code>OLLAMA_MODEL</code></td><td>llama3.2</td><td>Modelul Ollama (ex: <code>gemma4:e4b</code>, <code>llama3.1</code>, <code>mistral</code>)</td></tr>
         <tr><td><code>OLLAMA_API_KEY</code></td><td>—</td><td>API key pentru Ollama Cloud; gol = local</td></tr>
+        <tr><td><code>SEARXNG_BASE_URL</code></td><td>—</td><td>URL server SearXNG self-hosted, ex: <code>http://10.10.28.21:8181</code> (necesar pentru providerul <code>searxng</code>)</td></tr>
         <tr><td><code>SMTP_HOST</code></td><td>smtp.gmail.com</td><td>Server SMTP</td></tr>
         <tr><td><code>SMTP_PORT</code></td><td>587</td><td>Port SMTP</td></tr>
         <tr><td><code>SMTP_USER</code></td><td>—</td><td>Username SMTP</td></tr>

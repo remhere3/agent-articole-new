@@ -5,8 +5,9 @@ Agent automat de cautare articole stiintifice cu interfata HTML de administrare.
 ## Functionalitati
 
 - **Cautare articole** pe surse academice (arXiv, PubMed, Nature, IEEE, etc.)
-- **Filtrare stricta dupa data** — doar articolele din ultimele N zile
-- **3 provideri de cautare:** Anthropic Claude, Tavily, Ollama+Tavily (local)
+- **Filtrare stricta dupa data** — parametru nativ API + filtru garantat Python post-procesare
+- **4 provideri de cautare:** Anthropic Claude, Tavily, Ollama+Tavily (local), SearXNG+Ollama (self-hosted)
+- **Stergere watermarks IEEE** — snippet-urile cu text institutional IEEE sunt curatate automat
 - **Scheduler automat** — ruleaza cautarile la interval configurabil
 - **Rapoarte email** catre utilizatori abonati dupa fiecare cautare
 - **Interfata HTML** de administrare (fara framework frontend)
@@ -54,6 +55,7 @@ agent_articole/
 │   │   ├── search_anthropic.py  # Claude + web_search tool
 │   │   ├── search_tavily.py     # Tavily direct
 │   │   ├── search_ollama.py     # Ollama + Tavily ca tool
+│   │   ├── search_searxng.py    # SearXNG + Ollama (self-hosted)
 │   │   └── email_service.py     # Rapoarte email HTML
 │   └── templates/
 │       └── index.html       # Interfata HTML (Bootstrap 5)
@@ -69,11 +71,12 @@ agent_articole/
 
 ## Provideri suportati
 
-| Provider | Cost | Internet | Local |
-|----------|------|----------|-------|
-| Anthropic | ~$0.01-0.05/run | Da | Nu |
-| Tavily | ~$0.001/run | Da | Nu |
-| Ollama+Tavily | Gratuit LLM + Tavily | Da | Da (LLM) |
+| Provider | Cost | Internet | Local | Necesita |
+|----------|------|----------|-------|----------|
+| Anthropic | ~$0.01-0.05/run | Da | Nu | `ANTHROPIC_API_KEY` |
+| Tavily | ~$0.001/run | Da | Nu | `TAVILY_API_KEY` |
+| Ollama+Tavily | Gratuit LLM + Tavily | Da | Da (LLM) | `TAVILY_API_KEY` + Ollama |
+| SearXNG+Ollama | 0 | Self-hosted | Da | `SEARXNG_BASE_URL` + Ollama |
 
 ## Deployment ca serviciu systemd
 
@@ -136,6 +139,8 @@ Vezi `docs/api_examples.md` sau Swagger la `http://localhost:8000/docs`.
 | `TAVILY_API_KEY` | Cheie API Tavily | — |
 | `OLLAMA_BASE_URL` | URL Ollama local | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Modelul Ollama | `llama3.2` |
+| `OLLAMA_API_KEY` | API key Ollama Cloud; gol = local | — |
+| `SEARXNG_BASE_URL` | URL server SearXNG self-hosted | — |
 | `SMTP_HOST` | Server SMTP | `smtp.gmail.com` |
 | `SMTP_PORT` | Port SMTP | `587` |
 | `SMTP_USER` | User SMTP | — |

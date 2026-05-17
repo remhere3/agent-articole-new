@@ -11,6 +11,15 @@ from tavily import TavilyClient
 
 logger = logging.getLogger(__name__)
 
+
+def _strip_watermarks(text: str) -> str:
+    import re
+    return re.sub(
+        r'Authorized licensed use limited to:[^.]+\.\s*Downloaded on[^.]+\.\s*(?:UTC\s*)?(?:from[^.]+\.)?\s*Restrictions apply\.?',
+        '', text, flags=re.IGNORECASE
+    ).strip()
+
+
 ACADEMIC_DOMAINS = [
     # Preprint / Open Access
     "arxiv.org", "biorxiv.org", "medrxiv.org", "plos.org", "frontiersin.org",
@@ -54,9 +63,16 @@ def _is_academic(url: str) -> bool:
 def _parse_date(s: Optional[str]) -> Optional[datetime]:
     if not s:
         return None
-    for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%Y-%m"):
+    candidates = [
+        (20, "%Y-%m-%dT%H:%M:%SZ"),
+        (19, "%Y-%m-%dT%H:%M:%S"),
+        (10, "%Y-%m-%d"),
+        (7,  "%Y-%m"),
+    ]
+    text = str(s).strip()
+    for length, fmt in candidates:
         try:
-            return datetime.strptime(str(s).strip()[:len(fmt)], fmt)
+            return datetime.strptime(text[:length], fmt)
         except ValueError:
             continue
     return None
@@ -158,15 +174,17 @@ async def search_articles(
 
         # Daca avem data si e mai veche decat cutoff, excludem strict
         if pub_dt is not None and pub_dt < cutoff:
-            logger.debug(f"[Tavily] EXCLUS (vechi {pub_dt.date()}): {title[:50]}")
+            logger.info(f"[Tavily] EXCLUS (vechi {pub_dt.date()}): {title[:60]}")
             excluded_old += 1
             continue
 
         # Daca nu avem data, acceptam DOAR surse academice recunoscute
         if pub_dt is None and not _is_academic(url):
-            logger.debug(f"[Tavily] EXCLUS (fara data + non-academic): {title[:50]}")
+            logger.info(f"[Tavily] EXCLUS (fara data + non-academic): {title[:60]}")
             excluded_nodate += 1
             continue
+
+        summary = _strip_watermarks((item.get("content") or "")[:600]).strip() or None
 
         valid.append({
             "title":          title,
@@ -174,17 +192,23 @@ async def search_articles(
             "authors":        None,
             "source":         _domain(url),
             "published_date": pub_dt.strftime("%Y-%m-%d") if pub_dt else None,
-            "summary":        (item.get("content") or "")[:600].strip() or None,
+            "summary":        summary,
             "_academic":      _is_academic(url),
             "_score":         item.get("score", 0),
             "_pub_ts":        pub_dt.timestamp() if pub_dt else 0,
         })
 
-    if excluded_old or excluded_nodate:
-        logger.info(f"[Tavily] Excluse: {excluded_old} prea vechi, {excluded_nodate} fara data/non-academic")
+    logger.info(f"[Tavily] Excluse: {excluded_old} prea vechi, {excluded_nodate} fara data/non-academic | raman {len(valid)}")
 
     # Sorteaza: academic > recent > scor
     valid.sort(key=lambda x: (x.pop("_academic"), x.pop("_pub_ts"), x.pop("_score")), reverse=True)
+
+    # Filtru final garantat: Tavily poate returna ocazional articole vechi cu date incorecte
+    before = len(valid)
+    valid = [a for a in valid if _parse_date(a.get("published_date")) is None
+             or _parse_date(a.get("published_date")) >= cutoff]
+    if before - len(valid):
+        logger.info(f"[Tavily] Filtru final: eliminat {before - len(valid)} articole cu date incorecte")
 
     logger.info(f"[Tavily] VALID: {len(valid)}")
     for i, a in enumerate(valid, 1):

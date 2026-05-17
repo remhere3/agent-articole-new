@@ -172,6 +172,9 @@ def _build_telemetry(topic: models.Topic, articles: list, elapsed_s: float) -> d
         model = settings.ollama_model
         mode = "Ollama Cloud" if is_cloud else "Ollama local"
         web_search = f"Tavily API → {mode} ({model}) rezuma"
+    elif topic.provider == "searxng":
+        model = settings.ollama_model
+        web_search = f"SearXNG ({settings.searxng_base_url}) → Ollama local ({model}) rezuma"
     else:
         model = "—"
         web_search = "—"
@@ -222,6 +225,19 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
             keywords=topic.keywords or topic.user_question,
             days_back=topic.days_back,
             tavily_api_key=settings.tavily_api_key,
+            ollama_base_url=settings.ollama_base_url,
+            ollama_model=settings.ollama_model,
+            ollama_api_key=settings.ollama_api_key or None,
+            user_question=topic.user_question or None,
+            telemetry=telemetry,
+        )
+
+    elif topic.provider == "searxng":
+        from app.services.search_searxng import search_articles
+        return await search_articles(
+            keywords=topic.keywords or topic.user_question,
+            days_back=topic.days_back,
+            searxng_base_url=settings.searxng_base_url,
             ollama_base_url=settings.ollama_base_url,
             ollama_model=settings.ollama_model,
             ollama_api_key=settings.ollama_api_key or None,
@@ -361,6 +377,16 @@ async def validate_provider(provider: str):
                 return {"ok": False, "message": f"Ollama răspuns neașteptat: HTTP {r.status_code}"}
         except Exception as e:
             return {"ok": False, "message": f"Ollama nu răspunde la {settings.ollama_base_url}: {str(e)[:200]}"}
+
+    elif provider == "searxng":
+        try:
+            from app.services.search_searxng import check_searxng_available
+            ok = await check_searxng_available(settings.searxng_base_url)
+            if ok:
+                return {"ok": True, "message": f"SearXNG OK la {settings.searxng_base_url}"}
+            return {"ok": False, "message": f"SearXNG nu răspunde la {settings.searxng_base_url}"}
+        except Exception as e:
+            return {"ok": False, "message": f"SearXNG error: {str(e)[:200]}"}
 
     return {"ok": False, "message": f"Provider necunoscut: {provider}"}
 

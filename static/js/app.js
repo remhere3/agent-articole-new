@@ -50,7 +50,7 @@ function fmt(dateStr) {
 }
 
 function providerBadge(p) {
-  const cls = { anthropic: 'badge-anthropic', tavily: 'badge-tavily', ollama: 'badge-ollama' };
+  const cls = { anthropic: 'badge-anthropic', tavily: 'badge-tavily', ollama: 'badge-ollama', searxng: 'badge-searxng' };
   return `<span class="badge ${cls[p] || 'bg-secondary'}">${p}</span>`;
 }
 

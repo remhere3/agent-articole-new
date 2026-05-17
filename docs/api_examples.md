@@ -160,7 +160,7 @@ for t in r.json():
 | `days_back` | int | Articole din ultimele N zile (1–365) | 7 |
 | `periodicity_hours` | float | Ruleaza la fiecare N ore (min 0.5) | 24 |
 | `timeout_seconds` | int | Timeout maxim pentru o cautare (30–3600) | 300 |
-| `provider` | string | `anthropic` / `tavily` / `ollama` | `anthropic` |
+| `provider` | string | `anthropic` / `tavily` / `ollama` / `searxng` | `anthropic` |
 | `active` | bool | Ruleaza automat | true |
 | `send_email` | bool | Trimite email dupa cautare | true |
 | `user_ids` | list[int] | Utilizatori abonati | [] |
@@ -509,9 +509,12 @@ curl -s http://localhost:8007/api/searches/validate-provider/tavily | python3 -m
 
 # Valideaza Ollama (local)
 curl -s http://localhost:8007/api/searches/validate-provider/ollama | python3 -m json.tool
+
+# Valideaza SearXNG (self-hosted)
+curl -s http://localhost:8007/api/searches/validate-provider/searxng | python3 -m json.tool
 ```
 ```python
-for provider in ["anthropic", "tavily", "ollama"]:
+for provider in ["anthropic", "tavily", "ollama", "searxng"]:
     r = httpx.get(f"http://localhost:8007/api/searches/validate-provider/{provider}",
                   timeout=10.0)
     result = r.json()
@@ -525,7 +528,7 @@ for provider in ["anthropic", "tavily", "ollama"]:
 # {"ok": false, "message": "Anthropic error: authentication_error — invalid x-api-key"}
 ```
 
-Provideri acceptati: `anthropic`, `tavily`, `ollama`
+Provideri acceptati: `anthropic`, `tavily`, `ollama`, `searxng`
 
 ---
 
@@ -549,8 +552,8 @@ for s in r.json():
 ### PUT /api/settings/{key} — seteaza o valoare
 
 Chei disponibile: `anthropic_api_key`, `anthropic_model`, `tavily_api_key`,
-`ollama_base_url`, `ollama_model`, `smtp_host`, `smtp_port`, `smtp_user`,
-`smtp_password`, `email_from`.
+`ollama_base_url`, `ollama_model`, `ollama_api_key`, `searxng_base_url`,
+`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password`, `email_from`.
 
 ```bash
 # API key Anthropic
@@ -674,7 +677,7 @@ Toate erorile returneaza JSON cu campul `detail`:
 {"detail": "Topic not found"}
 {"detail": "Email already registered"}
 {"detail": "ANTHROPIC_API_KEY not configured"}
-{"detail": "provider must be one of {'anthropic', 'tavily', 'ollama'}"}
+{"detail": "provider must be one of {'anthropic', 'tavily', 'ollama', 'searxng'}"}
 {"detail": "Cooldown activ. Mai asteapta 45s."}
 ```
 

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.2"
     ollama_api_key: Optional[str] = None  # pentru Ollama Cloud
 
+    searxng_base_url: str = "http://localhost:8080"
+
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
     smtp_user: Optional[str] = None

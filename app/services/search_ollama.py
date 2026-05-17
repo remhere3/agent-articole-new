@@ -12,6 +12,24 @@ from typing import List, Dict, Any, Optional
 
 import httpx
 
+
+def _parse_date(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    candidates = [
+        (20, "%Y-%m-%dT%H:%M:%SZ"),
+        (19, "%Y-%m-%dT%H:%M:%S"),
+        (10, "%Y-%m-%d"),
+        (7,  "%Y-%m"),
+    ]
+    text = str(s).strip()
+    for length, fmt in candidates:
+        try:
+            return datetime.strptime(text[:length], fmt)
+        except ValueError:
+            continue
+    return None
+
 logger = logging.getLogger(__name__)
 
 
@@ -58,9 +76,16 @@ async def search_articles(
         logger.info("[Ollama] Tavily nu a returnat rezultate — opresc")
         return []
 
-    logger.info(f"[Ollama] Pasul 2 — {ollama_model} rezuma {len(raw_results)} rezultate")
-    cutoff = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
-    results_text = json.dumps(raw_results, ensure_ascii=False, indent=2)
+    cutoff_dt = datetime.now() - timedelta(days=days_back)
+    cutoff = cutoff_dt.strftime("%Y-%m-%d")
+
+    # Limiteaza la max 12 articole pentru a evita timeout Ollama
+    batch = raw_results[:12]
+    if len(raw_results) > 12:
+        logger.info(f"[Ollama] Limitat la 12/{len(raw_results)} articole (evita timeout)")
+    logger.info(f"[Ollama] Pasul 2 — {ollama_model} rezuma {len(batch)} rezultate")
+
+    results_text = json.dumps(batch, ensure_ascii=False, indent=2)
 
     prompt = f"""You are a scientific article analyst. Below are search results for: "{keywords}"
 Only keep articles published after {cutoff}.
@@ -97,8 +122,18 @@ Return ONLY valid JSON array, no other text."""
         telemetry["api_calls"] = telemetry.get("api_calls", 0) + ollama_calls
 
     if enriched:
-        logger.info(f"[Ollama] {len(enriched)} articole rezumate in {elapsed:.1f}s")
-        return enriched
+        # Filtru final: elimina articole mai vechi decat cutoff (Ollama poate ignora instructiunea)
+        final = []
+        for a in enriched:
+            pub_dt = _parse_date(a.get("published_date"))
+            if pub_dt is not None and pub_dt < cutoff_dt:
+                logger.info(f"[Ollama] EXCLUS (vechi {pub_dt.date()}): {a.get('title', '')[:60]}")
+            else:
+                final.append(a)
+        if len(enriched) - len(final):
+            logger.info(f"[Ollama] Filtru final: eliminat {len(enriched) - len(final)} articole prea vechi")
+        logger.info(f"[Ollama] {len(final)} articole rezumate in {elapsed:.1f}s")
+        return final
 
     logger.warning(f"[Ollama] Nu a putut parsa rezultate ({elapsed:.1f}s) — folosesc Tavily raw ({len(raw_results)} articole)")
     return raw_results

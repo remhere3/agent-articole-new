@@ -111,6 +111,7 @@ async def status(db: Session = Depends(get_db)):
         "tavily_configured": bool(app_settings.tavily_api_key),
         "ollama_url": app_settings.ollama_base_url,
         "ollama_model": app_settings.ollama_model,
+        "searxng_url": app_settings.searxng_base_url,
         "smtp_configured": bool(app_settings.smtp_user),
         "active_topics": active_topics,
         "total_results": total_results,
