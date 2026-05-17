@@ -60,6 +60,33 @@ def _is_academic(url: str) -> bool:
     return any(d == a or d.endswith("." + a) for a in ACADEMIC_DOMAINS)
 
 
+def _arxiv_date_from_url(url: str) -> Optional[str]:
+    """Extrage data din URL arXiv fara API call (e.g. arxiv.org/abs/2407.12345 → 2024-07-01)."""
+    import re
+    m = re.search(r'arxiv\.org/(?:abs|pdf)/(\d{4})\.', url)
+    if m:
+        yymm = m.group(1)
+        year, month = int("20" + yymm[:2]), int(yymm[2:4])
+        if 1 <= month <= 12:
+            return f"{year}-{month:02d}-01"
+    m2 = re.search(r'arxiv\.org/(?:abs|pdf)/\w+/(\d{2})(\d{2})', url)
+    if m2:
+        yy, mm = int(m2.group(1)), int(m2.group(2))
+        year = 2000 + yy if yy <= 30 else 1900 + yy
+        if 1 <= mm <= 12:
+            return f"{year}-{mm:02d}-01"
+    return None
+
+
+def _year_from_url(url: str) -> Optional[int]:
+    """Extrage un an (20xx) din URL — heuristica rapida pentru orice sursa."""
+    import re
+    years = re.findall(r'(?<!\d)(20[0-2]\d)(?!\d)', url)
+    if years:
+        return int(years[0])
+    return None
+
+
 def _parse_date(s: Optional[str]) -> Optional[datetime]:
     if not s:
         return None
@@ -172,13 +199,29 @@ async def search_articles(
 
         pub_dt = _parse_date(item.get("published_date"))
 
+        # Incearca sa extraga data din URL daca lipseste din metadata Tavily
+        if pub_dt is None:
+            # arXiv: precizie luna (cel mai bun)
+            url_date = _arxiv_date_from_url(url)
+            if url_date:
+                pub_dt = _parse_date(url_date)
+                if pub_dt:
+                    logger.info(f"[Tavily] Data din URL arXiv ({pub_dt.date()}): {title[:55]}")
+            # General: an din URL (heuristica, precizie an)
+            if pub_dt is None:
+                year = _year_from_url(url)
+                if year:
+                    # Folosim 1 iulie ca medie a anului — mai precis decat 1 ian
+                    pub_dt = datetime(year, 7, 1)
+                    logger.info(f"[Tavily] An din URL ({year}): {title[:55]}")
+
         # Daca avem data si e mai veche decat cutoff, excludem strict
         if pub_dt is not None and pub_dt < cutoff:
             logger.info(f"[Tavily] EXCLUS (vechi {pub_dt.date()}): {title[:60]}")
             excluded_old += 1
             continue
 
-        # Daca nu avem data, acceptam DOAR surse academice recunoscute
+        # Fara data: acceptam DOAR surse academice recunoscute (Tavily days=N filtreaza la sursa)
         if pub_dt is None and not _is_academic(url):
             logger.info(f"[Tavily] EXCLUS (fara data + non-academic): {title[:60]}")
             excluded_nodate += 1

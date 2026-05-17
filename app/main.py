@@ -61,7 +61,9 @@ app.include_router(searches.router)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    skip = request.url.path.startswith("/static") or request.url.path == "/api/logs/stream"
+    skip = (request.url.path.startswith("/static")
+            or request.url.path == "/api/logs/stream"
+            or request.url.path == "/api/status")
     if skip:
         return await call_next(request)
     t0 = time.perf_counter()
