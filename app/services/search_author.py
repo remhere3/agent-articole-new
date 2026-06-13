@@ -55,25 +55,41 @@ def _name_matches(search_name: str, candidate_name: str) -> bool:
     return all(p in candidate for p in parts)
 
 
+async def _ss_get(client: httpx.AsyncClient, url: str, params: dict) -> Optional[dict]:
+    """GET catre Semantic Scholar cu retry pe 429 (max 2 incercari, backoff 5s)."""
+    for attempt in range(2):
+        try:
+            r = await client.get(url, params=params, headers={"User-Agent": USER_AGENT})
+            if r.status_code == 200:
+                return r.json()
+            if r.status_code == 429:
+                wait = 5 * (attempt + 1)
+                logger.warning(f"[Author/SS] 429 Rate limit — astept {wait}s (incercarea {attempt+1}/2)")
+                await asyncio.sleep(wait)
+                continue
+            logger.warning(f"[Author/SS] HTTP {r.status_code} pentru {url}")
+            return None
+        except Exception as e:
+            logger.warning(f"[Author/SS] Request error: {e}")
+            return None
+    logger.warning("[Author/SS] Rate limit persistent dupa retry — renunt la Semantic Scholar")
+    return None
+
+
 async def _search_semantic_scholar(
     author_name: str,
     cutoff: datetime,
     client: httpx.AsyncClient,
 ) -> List[Dict[str, Any]]:
     # Pas 1: cauta autorul dupa nume
-    try:
-        r = await client.get(
-            f"{SS_BASE}/author/search",
-            params={"query": author_name, "fields": "name,paperCount", "limit": 5},
-            headers={"User-Agent": USER_AGENT},
-        )
-        if r.status_code != 200:
-            logger.warning(f"[Author/SS] Author search HTTP {r.status_code}")
-            return []
-        candidates = r.json().get("data", [])
-    except Exception as e:
-        logger.warning(f"[Author/SS] Author search error: {e}")
+    data = await _ss_get(
+        client,
+        f"{SS_BASE}/author/search",
+        {"query": author_name, "fields": "name,paperCount", "limit": 5},
+    )
+    if data is None:
         return []
+    candidates = data.get("data", [])
 
     # Filtreaza candidatii care se potrivesc cu numele
     matched = [a for a in candidates if _name_matches(author_name, a.get("name", ""))]
@@ -89,23 +105,15 @@ async def _search_semantic_scholar(
         author_id = author.get("authorId")
         if not author_id:
             continue
-        try:
-            r = await client.get(
-                f"{SS_BASE}/author/{author_id}/papers",
-                params={
-                    "fields": "title,authors,year,publicationDate,externalIds,url,abstract,venue,openAccessPdf",
-                    "limit": 100,
-                },
-                headers={"User-Agent": USER_AGENT},
-            )
-            if r.status_code != 200:
-                logger.warning(f"[Author/SS] Papers HTTP {r.status_code}")
-                continue
-            papers = r.json().get("data", [])
-            logger.info(f"[Author/SS] '{author.get('name')}': {len(papers)} articole total")
-        except Exception as e:
-            logger.warning(f"[Author/SS] Papers error: {e}")
+        papers_data = await _ss_get(
+            client,
+            f"{SS_BASE}/author/{author_id}/papers",
+            {"fields": "title,authors,year,publicationDate,externalIds,url,abstract,venue,openAccessPdf", "limit": 100},
+        )
+        if papers_data is None:
             continue
+        papers = papers_data.get("data", [])
+        logger.info(f"[Author/SS] '{author.get('name')}': {len(papers)} articole total")
 
         for paper in papers:
             title = (paper.get("title") or "").strip()
