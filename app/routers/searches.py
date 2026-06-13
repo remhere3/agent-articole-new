@@ -175,6 +175,9 @@ def _build_telemetry(topic: models.Topic, articles: list, elapsed_s: float) -> d
     elif topic.provider == "searxng":
         model = settings.ollama_model
         web_search = f"SearXNG ({settings.searxng_base_url}) → Ollama local ({model}) rezuma"
+    elif topic.provider == "author":
+        model = "—"
+        web_search = "Semantic Scholar API + CrossRef API (cautare dupa autor)"
     else:
         model = "—"
         web_search = "—"
@@ -242,6 +245,14 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
             ollama_model=settings.ollama_model,
             ollama_api_key=settings.ollama_api_key or None,
             user_question=topic.user_question or None,
+            telemetry=telemetry,
+        )
+
+    elif topic.provider == "author":
+        from app.services.search_author import search_articles
+        return await search_articles(
+            author_name=topic.keywords or topic.user_question,
+            days_back=topic.days_back,
             telemetry=telemetry,
         )
 
@@ -387,6 +398,21 @@ async def validate_provider(provider: str):
             return {"ok": False, "message": f"SearXNG nu răspunde la {settings.searxng_base_url}"}
         except Exception as e:
             return {"ok": False, "message": f"SearXNG error: {str(e)[:200]}"}
+
+    elif provider == "author":
+        try:
+            import httpx as _httpx
+            async with _httpx.AsyncClient(timeout=8.0) as client:
+                r = await client.get(
+                    "https://api.semanticscholar.org/graph/v1/author/search",
+                    params={"query": "test", "limit": 1},
+                    headers={"User-Agent": "AgentArticole/1.0"},
+                )
+                if r.status_code == 200:
+                    return {"ok": True, "message": "Semantic Scholar OK + CrossRef (fara cheie API necesara)"}
+                return {"ok": False, "message": f"Semantic Scholar HTTP {r.status_code}"}
+        except Exception as e:
+            return {"ok": False, "message": f"Author provider error: {str(e)[:200]}"}
 
     return {"ok": False, "message": f"Provider necunoscut: {provider}"}
 

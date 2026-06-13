@@ -105,6 +105,35 @@ def _parse_date(s: Optional[str]) -> Optional[datetime]:
     return None
 
 
+def _looks_like_person_name(text: str) -> bool:
+    """Heuristica simpla: 2-4 cuvinte, fiecare capitalizat, fara cifre."""
+    import re
+    parts = text.strip().split()
+    if not (2 <= len(parts) <= 4):
+        return False
+    return all(re.match(r'^[A-ZÁÉÍÓÚĂÂÎȘȚ][a-záéíóúăâîșț\-]+$', p) for p in parts)
+
+
+def _author_in_result(name: str, item: Dict) -> bool:
+    """Verifica daca numele complet al autorului apare ca fraza in titlu sau continut."""
+    haystack = " ".join([
+        item.get("title") or "",
+        item.get("content") or "",
+    ]).lower()
+    full = name.lower()
+    if full in haystack:
+        return True
+    # Accepta si varianta "Botoran, Oana" sau "Botoran O."
+    parts = name.split()
+    if len(parts) >= 2:
+        last, first = parts[-1].lower(), parts[0].lower()
+        if f"{last}, {first}" in haystack:
+            return True
+        if f"{last} {first[0]}." in haystack:
+            return True
+    return False
+
+
 async def search_articles(
     keywords: str,
     days_back: int,
@@ -123,13 +152,23 @@ async def search_articles(
     today = datetime.now().strftime("%Y-%m-%d")
     month_year = (datetime.now() - timedelta(days=days_back)).strftime("%B %Y")
 
+    is_author_search = _looks_like_person_name(keywords)
+    if is_author_search:
+        logger.info(f"[Tavily] Detectat cautare dupa autor: '{keywords}'")
+
     seen: set = set()
     collected: List[Dict] = []
 
-    queries = [
-        f"{keywords} {month_year}",
-        f"research study {keywords} {today[:4]}",
-    ]
+    if is_author_search:
+        queries = [
+            f'"{keywords}" author publications',
+            f'"{keywords}" research paper scientist',
+        ]
+    else:
+        queries = [
+            f"{keywords} {month_year}",
+            f"research study {keywords} {today[:4]}",
+        ]
 
     for qi, query in enumerate(queries, 1):
         logger.info(f"[Tavily] Query {qi}/{len(queries)}: '{query}' | days={days_back}")
@@ -185,6 +224,14 @@ async def search_articles(
 
     if telemetry is not None:
         telemetry["api_calls"] = _tavily_calls
+    # Filtrare autor: elimina rezultatele care nu mentioneaza numele
+    if is_author_search:
+        before_author = len(collected)
+        collected = [item for item in collected if _author_in_result(keywords, item)]
+        excluded_author = before_author - len(collected)
+        if excluded_author:
+            logger.info(f"[Tavily] Filtru autor: eliminat {excluded_author} rezultate fara '{keywords}'")
+
     logger.info(f"[Tavily] Total brut: {len(collected)} | incep validarea...")
 
     valid = []

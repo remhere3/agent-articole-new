@@ -57,7 +57,7 @@ class TopicBase(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        allowed = {"anthropic", "tavily", "ollama", "searxng"}
+        allowed = {"anthropic", "tavily", "ollama", "searxng", "author"}
         if v not in allowed:
             raise ValueError(f"provider must be one of {allowed}")
         return v
