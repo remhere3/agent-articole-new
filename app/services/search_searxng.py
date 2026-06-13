@@ -104,7 +104,6 @@ async def _lookup_date_crossref(doi: str) -> Optional[datetime]:
 
 async def _lookup_date_pubmed(pmid: str) -> Optional[datetime]:
     """Interogheaza NCBI E-utilities pentru data publicarii unui articol PubMed."""
-    import re
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             r = await client.get(

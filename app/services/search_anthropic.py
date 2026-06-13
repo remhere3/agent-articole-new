@@ -161,8 +161,8 @@ async def search_articles(
         telemetry["api_calls"]     = n_searches
     if response.stop_reason == "max_tokens":
         logger.warning(
-            f"[Anthropic] ATENTIE: stop_reason=max_tokens — raspunsul trunchiat! "
-            f"Considera cresterea max_tokens."
+            "[Anthropic] ATENTIE: stop_reason=max_tokens — raspunsul trunchiat! "
+            "Considera cresterea max_tokens."
         )
     logger.info(
         f"[Anthropic] Raspuns primit in {elapsed:.1f}s | stop={response.stop_reason} "
