@@ -177,7 +177,7 @@ def _build_telemetry(topic: models.Topic, articles: list, elapsed_s: float) -> d
         web_search = f"SearXNG ({settings.searxng_base_url}) → Ollama local ({model}) rezuma"
     elif topic.provider == "author":
         model = "—"
-        web_search = "Semantic Scholar API + CrossRef API (cautare dupa autor)"
+        web_search = "OpenAlex API + CrossRef API (cautare dupa autor)"
     else:
         model = "—"
         web_search = "—"
@@ -405,13 +405,13 @@ async def validate_provider(provider: str):
             import httpx as _httpx
             async with _httpx.AsyncClient(timeout=8.0) as client:
                 r = await client.get(
-                    "https://api.semanticscholar.org/graph/v1/author/search",
-                    params={"query": "test", "limit": 1},
-                    headers={"User-Agent": "AgentArticole/1.0"},
+                    "https://api.openalex.org/authors",
+                    params={"search": "test", "per-page": 1},
+                    headers={"User-Agent": "AgentArticole/1.0 (mailto:agent@icsi.ro)"},
                 )
                 if r.status_code == 200:
-                    return {"ok": True, "message": "Semantic Scholar OK + CrossRef (fara cheie API necesara)"}
-                return {"ok": False, "message": f"Semantic Scholar HTTP {r.status_code}"}
+                    return {"ok": True, "message": "OpenAlex OK + CrossRef (fara cheie API necesara)"}
+                return {"ok": False, "message": f"OpenAlex HTTP {r.status_code}"}
         except Exception as e:
             return {"ok": False, "message": f"Author provider error: {str(e)[:200]}"}
 

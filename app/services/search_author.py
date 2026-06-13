@@ -1,7 +1,8 @@
 """
-Cautare articole stiintifice dupa autor via Semantic Scholar + CrossRef.
-Semantic Scholar: gratuit, API key optional (ridica limita de la 1 req/s la 10 req/s).
-CrossRef: gratuit, fara autentificare.
+Cautare articole stiintifice dupa autor via OpenAlex + CrossRef.
+Ambele sunt complet gratuite, fara API key, fara probleme de rate limit.
+OpenAlex: https://openalex.org (100k req/zi, open data)
+CrossRef: https://crossref.org (open, politicos)
 """
 import asyncio
 import logging
@@ -14,8 +15,9 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-SS_BASE = "https://api.semanticscholar.org/graph/v1"
+OA_BASE = "https://api.openalex.org"
 CR_BASE = "https://api.crossref.org"
+# OpenAlex recomanda email in User-Agent pentru "polite pool" (rate limit mai relaxat)
 USER_AGENT = "AgentArticole/1.0 (mailto:agent@icsi.ro)"
 
 
@@ -38,139 +40,150 @@ def _parse_date(s) -> Optional[datetime]:
     return None
 
 
-def _url_from_paper(paper: dict) -> Optional[str]:
-    ext = paper.get("externalIds") or {}
-    if ext.get("DOI"):
-        return f"https://doi.org/{ext['DOI']}"
-    if ext.get("ArXiv"):
-        return f"https://arxiv.org/abs/{ext['ArXiv']}"
-    if ext.get("PubMed"):
-        return f"https://pubmed.ncbi.nlm.nih.gov/{ext['PubMed']}/"
-    return paper.get("url") or None
-
-
 def _name_matches(search_name: str, candidate_name: str) -> bool:
     parts = search_name.lower().split()
     candidate = candidate_name.lower()
     return all(p in candidate for p in parts)
 
 
-async def _ss_get(
-    client: httpx.AsyncClient,
-    url: str,
-    params: dict,
-    api_key: Optional[str],
-    delay: float,
-) -> Optional[dict]:
-    """
-    GET catre Semantic Scholar.
-    - Daca e API key: header x-api-key (10 req/s).
-    - Fara key: delay intre apeluri + retry pe 429.
-    """
-    headers = {"User-Agent": USER_AGENT}
-    if api_key:
-        headers["x-api-key"] = api_key
-    elif delay > 0:
-        await asyncio.sleep(delay)
-
-    for attempt in range(3):
-        try:
-            r = await client.get(url, params=params, headers=headers)
-            if r.status_code == 200:
-                return r.json()
-            if r.status_code == 429:
-                wait = 10 * (attempt + 1)
-                logger.warning(f"[Author/SS] 429 — astept {wait}s (incercarea {attempt+1}/3)")
-                await asyncio.sleep(wait)
-                continue
-            logger.warning(f"[Author/SS] HTTP {r.status_code}")
-            return None
-        except Exception as e:
-            logger.warning(f"[Author/SS] Request error: {e}")
-            return None
-    logger.warning("[Author/SS] Rate limit persistent — renunt, folosesc doar CrossRef")
-    return None
+def _best_url(work: dict) -> Optional[str]:
+    """Alege cel mai bun URL dintr-un work OpenAlex."""
+    if work.get("doi"):
+        doi = work["doi"].replace("https://doi.org/", "")
+        return f"https://doi.org/{doi}"
+    oa = work.get("open_access") or {}
+    if oa.get("oa_url"):
+        return oa["oa_url"]
+    ids = work.get("ids") or {}
+    if ids.get("pmid"):
+        pmid = str(ids["pmid"]).replace("https://pubmed.ncbi.nlm.nih.gov/", "").strip("/")
+        return f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+    return work.get("landing_page_url") or None
 
 
-async def _search_semantic_scholar(
+async def _search_openalex(
     author_name: str,
     cutoff: datetime,
     client: httpx.AsyncClient,
-    api_key: Optional[str],
 ) -> List[Dict[str, Any]]:
-    # Fara API key: 1 req/s maxim — delay de 1.2s intre apeluri
-    delay = 0.0 if api_key else 1.2
-
+    """
+    1. Cauta autorul in OpenAlex dupa nume → obtine author ID
+    2. Obtine lucrarile autorului filtrate dupa data
+    """
     # Pas 1: cauta autorul
-    data = await _ss_get(
-        client,
-        f"{SS_BASE}/author/search",
-        {"query": author_name, "fields": "name,paperCount", "limit": 5},
-        api_key,
-        delay,
-    )
-    if data is None:
+    try:
+        r = await client.get(
+            f"{OA_BASE}/authors",
+            params={"search": author_name, "per-page": 5},
+            headers={"User-Agent": USER_AGENT},
+        )
+        if r.status_code != 200:
+            logger.warning(f"[Author/OA] Author search HTTP {r.status_code}")
+            return []
+        candidates = r.json().get("results", [])
+        logger.info(f"[Author/OA] {len(candidates)} candidati pentru '{author_name}'")
+    except Exception as e:
+        logger.warning(f"[Author/OA] Author search error: {e}")
         return []
-    candidates = data.get("data", [])
 
-    matched = [a for a in candidates if _name_matches(author_name, a.get("name", ""))]
+    # Filtreaza dupa potrivire nume
+    matched = [
+        a for a in candidates
+        if _name_matches(author_name, a.get("display_name", ""))
+    ]
     if not matched:
         matched = candidates[:1]
-    logger.info(f"[Author/SS] Autori selectati: {[a.get('name') for a in matched]}")
+    if not matched:
+        logger.info("[Author/OA] Niciun autor gasit")
+        return []
+
+    logger.info(f"[Author/OA] Autori selectati: {[a.get('display_name') for a in matched]}")
 
     results = []
     seen: set = set()
+    from_date = cutoff.strftime("%Y-%m-%d")
 
-    # Pas 2: articolele fiecarui autor (max 2 autori pentru a limita apelurile)
+    # Pas 2: lucrarile fiecarui autor
     for author in matched[:2]:
-        author_id = author.get("authorId")
+        author_id = author.get("id", "").split("/")[-1]  # ex: A123456789
         if not author_id:
             continue
-        papers_data = await _ss_get(
-            client,
-            f"{SS_BASE}/author/{author_id}/papers",
-            {
-                "fields": "title,authors,year,publicationDate,externalIds,url,abstract,venue",
-                "limit": 100,
-            },
-            api_key,
-            delay,
-        )
-        if papers_data is None:
+        try:
+            r = await client.get(
+                f"{OA_BASE}/works",
+                params={
+                    "filter": f"author.id:{author_id},from_publication_date:{from_date}",
+                    "per-page": 100,
+                    "sort": "publication_date:desc",
+                    "select": "id,title,authorships,publication_date,doi,open_access,ids,primary_location,abstract_inverted_index,landing_page_url",
+                },
+                headers={"User-Agent": USER_AGENT},
+            )
+            if r.status_code != 200:
+                logger.warning(f"[Author/OA] Works HTTP {r.status_code}")
+                continue
+            works = r.json().get("results", [])
+            logger.info(f"[Author/OA] '{author.get('display_name')}': {len(works)} lucrari recente")
+        except Exception as e:
+            logger.warning(f"[Author/OA] Works error: {e}")
             continue
-        papers = papers_data.get("data", [])
-        logger.info(f"[Author/SS] '{author.get('name')}': {len(papers)} articole total")
 
-        for paper in papers:
-            title = (paper.get("title") or "").strip()
+        for work in works:
+            title = (work.get("title") or "").strip()
             if not title or title.lower() in seen:
                 continue
 
-            pub_dt = _parse_date(paper.get("publicationDate"))
-            if pub_dt is None and paper.get("year"):
-                pub_dt = datetime(paper["year"], 7, 1)
+            pub_dt = _parse_date(work.get("publication_date"))
             if pub_dt is None or pub_dt < cutoff:
                 continue
 
-            url = _url_from_paper(paper)
+            url = _best_url(work)
             if not url:
                 continue
 
             seen.add(title.lower())
-            authors_str = ", ".join(a.get("name", "") for a in (paper.get("authors") or []))
+
+            # Autori din authorships
+            authorships = work.get("authorships") or []
+            authors_str = ", ".join(
+                a.get("author", {}).get("display_name", "")
+                for a in authorships
+                if a.get("author", {}).get("display_name")
+            )
+
+            # Sursa (journal/venue)
+            loc = work.get("primary_location") or {}
+            source = (loc.get("source") or {}).get("display_name") or _domain(url)
+
+            # Abstract (OpenAlex il stocheaza ca inverted index)
+            abstract = _reconstruct_abstract(work.get("abstract_inverted_index"))
 
             results.append({
                 "title": title,
                 "url": url,
                 "authors": authors_str or None,
-                "source": _domain(url) or "semanticscholar.org",
+                "source": source,
                 "published_date": pub_dt.strftime("%Y-%m-%d"),
-                "summary": (paper.get("abstract") or "")[:600].strip() or None,
-                "_api": "ss",
+                "summary": abstract,
+                "_api": "oa",
             })
 
-    logger.info(f"[Author/SS] {len(results)} articole recente")
+    logger.info(f"[Author/OA] {len(results)} articole recente")
     return results
+
+
+def _reconstruct_abstract(inverted_index: Optional[dict]) -> Optional[str]:
+    """OpenAlex stocheaza abstractul ca {cuvant: [pozitii]}. Il reconstruim."""
+    if not inverted_index:
+        return None
+    try:
+        words = [""] * (max(pos for positions in inverted_index.values() for pos in positions) + 1)
+        for word, positions in inverted_index.items():
+            for pos in positions:
+                words[pos] = word
+        return " ".join(words)[:600] or None
+    except Exception:
+        return None
 
 
 async def _search_crossref(
@@ -254,28 +267,26 @@ async def _search_crossref(
 async def search_articles(
     author_name: str,
     days_back: int,
-    semantic_scholar_api_key: Optional[str] = None,
+    semantic_scholar_api_key: Optional[str] = None,  # pastrat pentru compatibilitate, neutilizat
     telemetry: Optional[dict] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Cauta articolele unui autor in Semantic Scholar si CrossRef.
-    SS si CR ruleaza in paralel; SS foloseste API key daca e disponibil.
-    Fara API key SS: delay automat 1.2s/request pentru a respecta limita 1 req/s.
+    Cauta articolele unui autor via OpenAlex + CrossRef in paralel.
+    Fara API key, fara rate limit problematic.
     """
     cutoff = datetime.now() - timedelta(days=days_back)
-    mode = "cu API key" if semantic_scholar_api_key else "fara API key (delay 1.2s/req)"
-    logger.info(f"[Author] '{author_name}' | cutoff={cutoff.date()} | SS {mode}")
+    logger.info(f"[Author] '{author_name}' | cutoff={cutoff.date()} | OpenAlex + CrossRef")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        ss_res, cr_res = await asyncio.gather(
-            _search_semantic_scholar(author_name, cutoff, client, semantic_scholar_api_key),
+        oa_res, cr_res = await asyncio.gather(
+            _search_openalex(author_name, cutoff, client),
             _search_crossref(author_name, cutoff, client),
             return_exceptions=True,
         )
 
-    if isinstance(ss_res, Exception):
-        logger.warning(f"[Author] Semantic Scholar error: {ss_res}")
-        ss_res = []
+    if isinstance(oa_res, Exception):
+        logger.warning(f"[Author] OpenAlex error: {oa_res}")
+        oa_res = []
     if isinstance(cr_res, Exception):
         logger.warning(f"[Author] CrossRef error: {cr_res}")
         cr_res = []
@@ -283,10 +294,10 @@ async def search_articles(
     if telemetry is not None:
         telemetry["api_calls"] = 2
 
-    # Deduplicare dupa titlu normalizat (SS are prioritate — abstracte mai bune)
+    # Deduplicare dupa titlu (OA are prioritate — abstracte complete)
     seen: set = set()
     merged = []
-    for article in list(ss_res) + list(cr_res):
+    for article in list(oa_res) + list(cr_res):
         norm = article["title"].lower().strip()
         if norm not in seen:
             seen.add(norm)
@@ -295,7 +306,7 @@ async def search_articles(
 
     merged.sort(key=lambda x: x.get("published_date") or "", reverse=True)
 
-    logger.info(f"[Author] TOTAL: {len(ss_res)} SS + {len(cr_res)} CR = {len(merged)} unice")
+    logger.info(f"[Author] TOTAL: {len(oa_res)} OA + {len(cr_res)} CR = {len(merged)} unice")
     for i, a in enumerate(merged, 1):
         logger.info(f"  [{i}] {a.get('published_date','?')} | {a.get('source','?')[:30]} | {a['title'][:55]}")
 
