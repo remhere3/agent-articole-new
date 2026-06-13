@@ -175,7 +175,7 @@ body {
         <tr><td><strong>Cautare articole</strong></td><td>arXiv, PubMed, Nature, Science, IEEE, ACM, bioRxiv, medRxiv si altele</td></tr>
         <tr><td><strong>Filtrare stricta data</strong></td><td>Parametru <code>days_back</code> — doar articolele din ultimele N zile</td></tr>
         <tr><td><strong>Intrebare libera</strong></td><td>Campul <code>user_question</code> permite adresarea unei intrebari in limbaj natural (protejat anti-prompt-injection)</td></tr>
-        <tr><td><strong>4 provideri</strong></td><td>Anthropic Claude, Tavily, Ollama+Tavily (local), SearXNG+Ollama (self-hosted)</td></tr>
+        <tr><td><strong>5 provideri</strong></td><td>Anthropic Claude, Tavily, Ollama+Tavily (local), SearXNG+Ollama (self-hosted), Author (OpenAlex+CrossRef)</td></tr>
         <tr><td><strong>Scheduler automat</strong></td><td>APScheduler verifica la 15 min si ruleaza topicurile scadente; timeout configurabil per topic</td></tr>
         <tr><td><strong>Toate rezultatele per run</strong></td><td>Fiecare cautare salveaza toate articolele gasite; filtrarea se face doar dupa data publicarii (<code>days_back</code>), nu dupa rularile anterioare</td></tr>
         <tr><td><strong>Cost estimat</strong></td><td>Fiecare run Anthropic calculeaza costul in USD bazat pe tokens input/output ($3/$15 per million)</td></tr>
@@ -620,13 +620,20 @@ body {
           <td>15–60s</td>
           <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
         </tr>
+        <tr>
+          <td><span class="d-badge" style="background:rgba(0,150,136,.12);color:#00897b;">author</span></td>
+          <td>OpenAlex (author ID → lucrari filtrate) + CrossRef (<code>query.author</code>) in paralel — deduplicare dupa titlu</td>
+          <td>0 (API-uri publice gratuite)</td>
+          <td>3–8s</td>
+          <td>Nimic — fara cheie API</td>
+        </tr>
       </tbody>
     </table>
     <div class="d-card-body" style="padding-top:.5rem;display:flex;flex-direction:column;gap:.75rem;">
 
       <!-- Nota websearch nativ -->
       <div style="background:rgba(0,68,170,.07);border:1px solid rgba(0,68,170,.2);border-left:3px solid #0044aa;border-radius:.4rem;padding:.65rem .9rem;">
-        <strong style="color:#0044aa;font-size:.84rem;"><i class="bi bi-info-circle me-1"></i>Web search nativ vs. Tavily</strong>
+        <strong style="color:#0044aa;font-size:.84rem;"><i class="bi bi-info-circle me-1"></i>Web search nativ vs. Tavily vs. API academice</strong>
         <p style="margin:.35rem 0 0;font-size:.84rem;">
           <strong>Singurul provider cu web search nativ este <code>anthropic</code></strong> — Claude foloseste tool-ul
           <code>web_search_20250305</code> direct, fara nicio cheie externa suplimentara.
@@ -641,9 +648,16 @@ body {
         <p style="margin:.35rem 0 0;font-size:.84rem;">
           Similar, providerul <code>searxng</code> <strong>nu are web search nativ in model</strong> —
           <strong>SearXNG</strong> (self-hosted pe retea) face cautarea web in locul lui Tavily, fara cheie API externa,
-          iar <strong>Ollama</strong> (local) preia rezultatele si le rezuma. Modelul Ollama nu cauta nimic pe cont propriu.
+          iar <strong>Ollama</strong> (local) preia rezultatele si le rezuma.
           Prin urmare, <code>TAVILY_API_KEY</code> nu este necesara pentru <code>searxng</code>, dar
           <code>SEARXNG_BASE_URL</code> si Ollama local trebuie sa fie disponibile.
+        </p>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          Providerul <code>author</code> <strong>nu face cautare web generica</strong> — interogheaza direct
+          <strong>OpenAlex</strong> (100k req/zi gratuit, open data CC0) si <strong>CrossRef</strong> (gratuit),
+          doua baze de date academice structurate. Cauta articolele unui autor specific dupa nume,
+          cu filtrare garantata pe lista de autori a fiecarui articol. <strong>Nu necesita nicio cheie API.</strong>
+          Recomandat pentru monitorizarea productiei stiintifice a unui cercetator.
         </p>
       </div>
 
@@ -677,6 +691,12 @@ body {
             <td>Ollama local</td>
             <td><span class="d-badge gray">Nu</span> (<code>SEARXNG_BASE_URL</code>)</td>
           </tr>
+          <tr>
+            <td><span class="d-badge" style="background:rgba(0,150,136,.12);color:#00897b;">author</span></td>
+            <td>OpenAlex API + CrossRef API (baze de date academice, nu cautare web)</td>
+            <td>Python direct (fara LLM)</td>
+            <td><span class="d-badge gray">Nu</span> (nicio cheie necesara)</td>
+          </tr>
         </tbody>
       </table>
 
@@ -697,32 +717,36 @@ body {
 
       <!-- Tabel comparatie completa -->
       <div style="margin-top:.25rem;">
-        <p style="font-size:.84rem;margin-bottom:.5rem;"><strong>Comparatie completa cei 4 provideri:</strong></p>
+        <p style="font-size:.84rem;margin-bottom:.5rem;"><strong>Comparatie completa cei 5 provideri:</strong></p>
         <table class="d-table">
           <thead>
             <tr>
-              <th style="width:18%"></th>
-              <th style="background:#172554;color:#93c5fd;font-size:.85rem;letter-spacing:.06em;text-align:center;">
+              <th style="width:15%"></th>
+              <th style="background:#172554;color:#93c5fd;font-size:.8rem;letter-spacing:.06em;text-align:center;">
                 <i class="bi bi-stars me-1"></i>ANTHROPIC
               </th>
-              <th style="background:#78350f;color:#fde68a;font-size:.85rem;letter-spacing:.06em;text-align:center;">
+              <th style="background:#78350f;color:#fde68a;font-size:.8rem;letter-spacing:.06em;text-align:center;">
                 <i class="bi bi-search me-1"></i>TAVILY
               </th>
-              <th style="background:#14532d;color:#86efac;font-size:.85rem;letter-spacing:.06em;text-align:center;">
+              <th style="background:#14532d;color:#86efac;font-size:.8rem;letter-spacing:.06em;text-align:center;">
                 <i class="bi bi-cpu me-1"></i>OLLAMA
               </th>
-              <th style="background:#2d1b4e;color:#ddd6fe;font-size:.85rem;letter-spacing:.06em;text-align:center;">
+              <th style="background:#2d1b4e;color:#ddd6fe;font-size:.8rem;letter-spacing:.06em;text-align:center;">
                 <i class="bi bi-search me-1"></i>SEARXNG
+              </th>
+              <th style="background:#004d40;color:#80cbc4;font-size:.8rem;letter-spacing:.06em;text-align:center;">
+                <i class="bi bi-person-lines-fill me-1"></i>AUTHOR
               </th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Cauta pe web</strong></td>
-              <td>Claude (<code>web_search_20250305</code> nativ, max 5 apeluri)</td>
+              <td><strong>Sursa date</strong></td>
+              <td>Web general (via <code>web_search_20250305</code> nativ, max 5 apeluri)</td>
               <td>Tavily API</td>
               <td>Tavily API <em>(identic cu tavily)</em></td>
               <td>SearXNG API (self-hosted, retea locala)</td>
+              <td>OpenAlex API + CrossRef API (baze de date academice structurate)</td>
             </tr>
             <tr>
               <td><strong>Proceseaza rezultatele</strong></td>
@@ -730,6 +754,7 @@ body {
               <td>Python direct — extrage titlu, URL, data, primele 600 chars din snippet</td>
               <td>Ollama local — rescrie summary-urile cu LLM</td>
               <td>Ollama local — rescrie summary-urile cu LLM</td>
+              <td>Python direct — abstractele vin direct din baza de date</td>
             </tr>
             <tr>
               <td><strong>LLM implicat</strong></td>
@@ -737,20 +762,15 @@ body {
               <td>Nu</td>
               <td>Da — llama3, gemma4, mistral etc. (local / cloud)</td>
               <td>Da — llama3, gemma4, mistral etc. (local)</td>
+              <td>Nu</td>
             </tr>
             <tr>
-              <td><strong>Controlul domeniilor</strong></td>
-              <td>Sugestie in prompt <em>(negarantat)</em> — Claude decide ce site-uri viziteaza</td>
-              <td>Lista exacta <code>ACADEMIC_DOMAINS</code>, respectata 100%</td>
+              <td><strong>Controlul surselor</strong></td>
+              <td>Sugestie in prompt <em>(negarantat)</em></td>
+              <td>Lista exacta <code>ACADEMIC_DOMAINS</code></td>
               <td>Lista exacta <code>ACADEMIC_DOMAINS</code> (prin Tavily)</td>
-              <td>Motoarele configurate in SearXNG (PubMed, arXiv etc.)</td>
-            </tr>
-            <tr>
-              <td><strong>Acoperire web</strong></td>
-              <td>Orice site indexat — poate gasi si surse neacademice</td>
-              <td>Doar domeniile din <code>ACADEMIC_DOMAINS</code></td>
-              <td>Doar domeniile din <code>ACADEMIC_DOMAINS</code></td>
-              <td>Depinde de motoarele activate in SearXNG</td>
+              <td>Motoarele configurate in SearXNG</td>
+              <td>Filtrare exacta dupa <code>authorships.author.id</code> in OpenAlex + verificare lista autori in CrossRef</td>
             </tr>
             <tr>
               <td><strong>Rezultate tipice / run</strong></td>
@@ -758,13 +778,15 @@ body {
               <td>15–30+ articole</td>
               <td>10–25 articole</td>
               <td>10–25 articole</td>
+              <td>Toate lucrarile autorului din fereastra <code>days_back</code> (poate fi 0 daca autorul nu e in OpenAlex)</td>
             </tr>
             <tr>
               <td><strong>Calitate summary-uri</strong></td>
               <td>Foarte buna — Claude scrie in limbaj natural coerent</td>
               <td>Snippet brut, nereformat</td>
-              <td>Buna — LLM local rescrie, mai coerente decat Tavily raw</td>
               <td>Buna — LLM local rescrie</td>
+              <td>Buna — LLM local rescrie</td>
+              <td>Abstract complet din baza de date (acolo unde exista)</td>
             </tr>
             <tr>
               <td><strong>Cost / run</strong></td>
@@ -772,13 +794,15 @@ body {
               <td>~$0.001 (doar Tavily)</td>
               <td>~$0.001 (Tavily) + CPU/GPU local</td>
               <td>0 (self-hosted)</td>
+              <td>0 (API-uri publice gratuite)</td>
             </tr>
             <tr>
               <td><strong>Viteza</strong></td>
-              <td>15–90s (depinde de complexitate)</td>
+              <td>15–90s</td>
               <td>5–15s</td>
-              <td>15–60s (depinde de model si hardware)</td>
               <td>15–60s</td>
+              <td>15–60s</td>
+              <td>3–8s</td>
             </tr>
             <tr>
               <td><strong>Necesita</strong></td>
@@ -786,13 +810,15 @@ body {
               <td><code>TAVILY_API_KEY</code></td>
               <td><code>TAVILY_API_KEY</code> + Ollama instalat</td>
               <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
+              <td>Nimic — fara cheie API</td>
             </tr>
             <tr>
               <td><strong>Cand il folosesti</strong></td>
-              <td>Intrebari complexe, sinteza tematica, domenii nise unde Tavily nu stie sa caute</td>
+              <td>Intrebari complexe, sinteza tematica, domenii nise</td>
               <td>Volum maxim, surse garantat academice, viteza, cost minim</td>
-              <td>Vrei summary-uri mai bune decat Tavily raw, fara costuri Anthropic, ai GPU/CPU disponibil</td>
-              <td>Self-hosted complet, fara costuri API externe, retea locala cu SearXNG</td>
+              <td>Summary-uri mai bune decat Tavily raw, fara costuri Anthropic</td>
+              <td>Self-hosted complet, fara costuri API externe</td>
+              <td><strong>Monitorizare productie stiintifica a unui autor specific</strong> — articolele publicate de o persoana</td>
             </tr>
           </tbody>
         </table>
@@ -802,7 +828,7 @@ body {
       <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.2);border-left:3px solid #c45c00;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
         <strong style="color:#c45c00;"><i class="bi bi-calendar-check me-1"></i>Filtrare data stricta — doua etape garantate</strong><br>
         <strong>Etapa 1 (API nativ):</strong> <code>days=N</code> la Tavily; prompt cu data explicita la Claude; filtru client-side la SearXNG (nu suporta <code>time_range</code> pe toate motoarele).<br>
-        <strong>Etapa 2 (Python post-procesare):</strong> dupa ce LLM-ul sau API-ul returneaza articolele, Python re-valideaza fiecare data cu <code>_parse_date()</code> si exclude strict orice articol cu <code>pub_dt &lt; cutoff</code>. Aplicat la toti cei 4 provideri.<br>
+        <strong>Etapa 2 (Python post-procesare):</strong> dupa ce LLM-ul sau API-ul returneaza articolele, Python re-valideaza fiecare data cu <code>_parse_date()</code> si exclude strict orice articol cu <code>pub_dt &lt; cutoff</code>. Aplicat la toti providerii.<br>
         Articolele fara data confirmata sunt acceptate doar daca provin de pe domenii academice recunoscute (<code>ACADEMIC_DOMAINS</code>).
         Summary-urile sunt curatate automat de watermarks IEEE (<code>_strip_watermarks()</code>).
       </div>
@@ -952,7 +978,7 @@ TOPICS = [
     <div>
       <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-table me-1"></i>Volum rezultate per provider</p>
       <table class="d-table">
-        <thead><tr><th>Provider</th><th>Rezultate tipice / run</th><th>Cand sa-l folosesti pentru volum maxim</th></tr></thead>
+        <thead><tr><th>Provider</th><th>Rezultate tipice / run</th><th>Cand sa-l folosesti</th></tr></thead>
         <tbody>
           <tr>
             <td><span class="d-badge blue">anthropic</span></td>
@@ -973,6 +999,11 @@ TOPICS = [
             <td><span class="d-badge purple">searxng</span></td>
             <td>10–25 articole</td>
             <td>Self-hosted complet, fara costuri externe; SearXNG cauta, Ollama rezuma</td>
+          </tr>
+          <tr>
+            <td><span class="d-badge" style="background:rgba(0,150,136,.12);color:#00897b;">author</span></td>
+            <td>Toate lucrarile autorului din fereastra <code>days_back</code></td>
+            <td><strong>Cautare dupa autor</strong> — monitorizare productie stiintifica a unui cercetator specific; <code>keywords</code> = numele autorului</td>
           </tr>
         </tbody>
       </table>
@@ -1082,10 +1113,10 @@ httpx.delete(f"{BASE}/users/1")</pre>
         <tr><td><code>name</code></td><td>string</td><td>—</td><td>Numele topicului</td></tr>
         <tr><td><code>user_question</code></td><td>string|null</td><td>null</td><td><strong>Intrebarea libera</strong> adresata agentului (prioritate fata de keywords; protejat anti-prompt-injection)</td></tr>
         <tr><td><code>keywords</code></td><td>string</td><td>—</td><td>Cuvinte cheie (folosite cand user_question e gol)</td></tr>
-        <tr><td><code>days_back</code></td><td>int</td><td>7</td><td>Articole publicate in ultimele N zile (1–365)</td></tr>
+        <tr><td><code>days_back</code></td><td>int</td><td>7</td><td>Articole publicate in ultimele N zile (1–3650). Pentru provider <code>author</code> se recomanda 365–3650.</td></tr>
         <tr><td><code>periodicity_hours</code></td><td>float</td><td>24</td><td>Interval rulare automata (ore, min 0.5)</td></tr>
         <tr><td><code>timeout_seconds</code></td><td>int</td><td>300</td><td>Timeout maxim pentru o cautare in secunde (30–3600). Dupa expirare, run-ul e marcat cu status <code>error</code>.</td></tr>
-        <tr><td><code>provider</code></td><td>string</td><td>anthropic</td><td><code>anthropic</code> / <code>tavily</code> / <code>ollama</code> / <code>searxng</code></td></tr>
+        <tr><td><code>provider</code></td><td>string</td><td>anthropic</td><td><code>anthropic</code> / <code>tavily</code> / <code>ollama</code> / <code>searxng</code> / <code>author</code>. Pentru <code>author</code>, <code>keywords</code> trebuie sa contina numele autorului (ex: <code>"Oana Botoran"</code>)</td></tr>
         <tr><td><code>active</code></td><td>bool</td><td>true</td><td>Include in scheduler automat</td></tr>
         <tr><td><code>send_email</code></td><td>bool</td><td>true</td><td>Trimite email dupa cautare</td></tr>
         <tr><td><code>user_ids</code></td><td>list[int]</td><td>[]</td><td>Utilizatori abonati</td></tr>
@@ -1329,9 +1360,14 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
               <td>Cereri SearXNG (2 interogari) + 1 apel LLM local Ollama pentru rezumare</td>
             </tr>
             <tr>
+              <td><code>api_calls</code></td>
+              <td><span class="d-badge" style="background:rgba(0,150,136,.1);color:#00897b">author</span></td>
+              <td>Intotdeauna 2: 1 apel OpenAlex (autor + lucrari) + 1 apel CrossRef (query.author)</td>
+            </tr>
+            <tr>
               <td><code>tokens_input</code> / <code>tokens_output</code> / <code>estimated_cost_usd</code></td>
-              <td><span class="d-badge orange">tavily</span> <span class="d-badge green">ollama</span> <span class="d-badge purple">searxng</span></td>
-              <td><code>null</code> — Tavily, Ollama si SearXNG nu raporteaza tokeni, deci costul nu se calculeaza</td>
+              <td><span class="d-badge orange">tavily</span> <span class="d-badge green">ollama</span> <span class="d-badge purple">searxng</span> <span class="d-badge" style="background:rgba(0,150,136,.1);color:#00897b">author</span></td>
+              <td><code>null</code> — acesti provideri nu folosesc modele LLM cu cost per token, deci nu se calculeaza cost</td>
             </tr>
           </tbody>
         </table>
@@ -1352,7 +1388,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             </tr>
             <tr>
               <td><code>GET /validate-provider/{provider}</code></td>
-              <td>Testeaza conectivitatea live: Anthropic (<code>models.list()</code>), Tavily (cautare test), Ollama (<code>/api/tags</code>), SearXNG (<code>GET /search?format=json</code> test). Returneaza <code>{"ok": bool, "message": "..."}</code></td>
+              <td>Testeaza conectivitatea live: Anthropic (<code>models.list()</code>), Tavily (cautare test), Ollama (<code>/api/tags</code>), SearXNG (<code>GET /search?format=json</code>), Author (<code>GET /authors?search=test</code> pe OpenAlex + <code>GET /works?query.author=test</code> pe CrossRef). Returneaza <code>{"ok": bool, "message": "..."}</code></td>
             </tr>
           </tbody>
         </table>
@@ -1429,7 +1465,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
         </tr>
         <tr>
           <td>12</td>
-          <td><strong>Stergere watermarks IEEE</strong> — regex <code>_strip_watermarks()</code> aplicat pe summary-urile returnate de toti cei 4 provideri; elimina textul institutional <em>"Authorized licensed use limited to: ... Restrictions apply."</em></td>
+          <td><strong>Stergere watermarks IEEE</strong> — regex <code>_strip_watermarks()</code> aplicat pe summary-urile returnate de toti cei 5 provideri; elimina textul institutional <em>"Authorized licensed use limited to: ... Restrictions apply."</em></td>
           <td>Summary-urile nu mai contin informatii de licentiere IEEE irelevante pentru continutul stiintific</td>
         </tr>
         <tr>
@@ -1507,7 +1543,20 @@ TOPIC=$(curl -s -X POST $BASE/topics \
 TOPIC_ID=$(echo $TOPIC | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
 # 4. Ruleaza si afiseaza
-curl -s -X POST $BASE/searches/run/$TOPIC_ID | python3 -m json.tool</pre>
+curl -s -X POST $BASE/searches/run/$TOPIC_ID | python3 -m json.tool
+
+# --- Exemplu provider "author" (OpenAlex + CrossRef, fara API key) ---
+AUTHOR_TOPIC=$(curl -s -X POST $BASE/topics \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"Publicatii Oana Botoran\",
+    \"keywords\": \"Oana Botoran\",
+    \"days_back\": 3650,
+    \"provider\": \"author\",
+    \"user_ids\": [$USER_ID]
+  }")
+AUTHOR_TOPIC_ID=$(echo $AUTHOR_TOPIC | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+curl -s -X POST $BASE/searches/run/$AUTHOR_TOPIC_ID | python3 -m json.tool</pre>
       </div>
     </div>
     <div id="tab-e2e-py" class="d-code-tabs" style="display:none">
@@ -1547,6 +1596,13 @@ topics = [
         "days_back": 14,
         "provider": "tavily",
         "user_ids": [u1["id"]]
+    },
+    {
+        "name": "Publicatii Oana Botoran",
+        "keywords": "Oana Botoran",   # numele autorului — FARA alte cuvinte cheie
+        "days_back": 3650,            # pana la 10 ani retroactiv
+        "provider": "author",         # OpenAlex + CrossRef, fara API key
+        "user_ids": [u1["id"], u2["id"]]
     },
 ]
 for cfg in topics:
