@@ -71,8 +71,8 @@ class TopicBase(BaseModel):
     @field_validator("days_back")
     @classmethod
     def validate_days_back(cls, v: int) -> int:
-        if v < 1 or v > 365:
-            raise ValueError("days_back must be between 1 and 365")
+        if v < 1 or v > 3650:
+            raise ValueError("days_back must be between 1 and 3650")
         return v
 
     @field_validator("periodicity_hours")
