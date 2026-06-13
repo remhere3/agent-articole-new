@@ -1,6 +1,7 @@
 """
 Cautare articole stiintifice dupa autor via Semantic Scholar + CrossRef.
-Ambele API-uri sunt gratuite si nu necesita chei API.
+Semantic Scholar: gratuit, API key optional (ridica limita de la 1 req/s la 10 req/s).
+CrossRef: gratuit, fara autentificare.
 """
 import asyncio
 import logging
@@ -49,30 +50,45 @@ def _url_from_paper(paper: dict) -> Optional[str]:
 
 
 def _name_matches(search_name: str, candidate_name: str) -> bool:
-    """Verifica daca toate partile numelui cautat apar in numele candidatului."""
     parts = search_name.lower().split()
     candidate = candidate_name.lower()
     return all(p in candidate for p in parts)
 
 
-async def _ss_get(client: httpx.AsyncClient, url: str, params: dict) -> Optional[dict]:
-    """GET catre Semantic Scholar cu retry pe 429 (max 2 incercari, backoff 5s)."""
-    for attempt in range(2):
+async def _ss_get(
+    client: httpx.AsyncClient,
+    url: str,
+    params: dict,
+    api_key: Optional[str],
+    delay: float,
+) -> Optional[dict]:
+    """
+    GET catre Semantic Scholar.
+    - Daca e API key: header x-api-key (10 req/s).
+    - Fara key: delay intre apeluri + retry pe 429.
+    """
+    headers = {"User-Agent": USER_AGENT}
+    if api_key:
+        headers["x-api-key"] = api_key
+    elif delay > 0:
+        await asyncio.sleep(delay)
+
+    for attempt in range(3):
         try:
-            r = await client.get(url, params=params, headers={"User-Agent": USER_AGENT})
+            r = await client.get(url, params=params, headers=headers)
             if r.status_code == 200:
                 return r.json()
             if r.status_code == 429:
-                wait = 5 * (attempt + 1)
-                logger.warning(f"[Author/SS] 429 Rate limit — astept {wait}s (incercarea {attempt+1}/2)")
+                wait = 10 * (attempt + 1)
+                logger.warning(f"[Author/SS] 429 — astept {wait}s (incercarea {attempt+1}/3)")
                 await asyncio.sleep(wait)
                 continue
-            logger.warning(f"[Author/SS] HTTP {r.status_code} pentru {url}")
+            logger.warning(f"[Author/SS] HTTP {r.status_code}")
             return None
         except Exception as e:
             logger.warning(f"[Author/SS] Request error: {e}")
             return None
-    logger.warning("[Author/SS] Rate limit persistent dupa retry — renunt la Semantic Scholar")
+    logger.warning("[Author/SS] Rate limit persistent — renunt, folosesc doar CrossRef")
     return None
 
 
@@ -80,35 +96,45 @@ async def _search_semantic_scholar(
     author_name: str,
     cutoff: datetime,
     client: httpx.AsyncClient,
+    api_key: Optional[str],
 ) -> List[Dict[str, Any]]:
-    # Pas 1: cauta autorul dupa nume
+    # Fara API key: 1 req/s maxim — delay de 1.2s intre apeluri
+    delay = 0.0 if api_key else 1.2
+
+    # Pas 1: cauta autorul
     data = await _ss_get(
         client,
         f"{SS_BASE}/author/search",
         {"query": author_name, "fields": "name,paperCount", "limit": 5},
+        api_key,
+        delay,
     )
     if data is None:
         return []
     candidates = data.get("data", [])
 
-    # Filtreaza candidatii care se potrivesc cu numele
     matched = [a for a in candidates if _name_matches(author_name, a.get("name", ""))]
     if not matched:
-        matched = candidates[:1]  # fallback: primul rezultat
+        matched = candidates[:1]
     logger.info(f"[Author/SS] Autori selectati: {[a.get('name') for a in matched]}")
 
     results = []
     seen: set = set()
 
-    # Pas 2: obtine articolele fiecarui autor
-    for author in matched[:3]:
+    # Pas 2: articolele fiecarui autor (max 2 autori pentru a limita apelurile)
+    for author in matched[:2]:
         author_id = author.get("authorId")
         if not author_id:
             continue
         papers_data = await _ss_get(
             client,
             f"{SS_BASE}/author/{author_id}/papers",
-            {"fields": "title,authors,year,publicationDate,externalIds,url,abstract,venue,openAccessPdf", "limit": 100},
+            {
+                "fields": "title,authors,year,publicationDate,externalIds,url,abstract,venue",
+                "limit": 100,
+            },
+            api_key,
+            delay,
         )
         if papers_data is None:
             continue
@@ -132,7 +158,6 @@ async def _search_semantic_scholar(
 
             seen.add(title.lower())
             authors_str = ", ".join(a.get("name", "") for a in (paper.get("authors") or []))
-            abstract = (paper.get("abstract") or "")[:600]
 
             results.append({
                 "title": title,
@@ -140,7 +165,7 @@ async def _search_semantic_scholar(
                 "authors": authors_str or None,
                 "source": _domain(url) or "semanticscholar.org",
                 "published_date": pub_dt.strftime("%Y-%m-%d"),
-                "summary": abstract.strip() or None,
+                "summary": (paper.get("abstract") or "")[:600].strip() or None,
                 "_api": "ss",
             })
 
@@ -182,7 +207,6 @@ async def _search_crossref(
         if not title:
             continue
 
-        # Verifica ca autorul cautat e in lista de autori CrossRef
         cr_authors = item.get("author") or []
         if not any(
             _name_matches(author_name, f"{a.get('given', '')} {a.get('family', '')}")
@@ -230,18 +254,21 @@ async def _search_crossref(
 async def search_articles(
     author_name: str,
     days_back: int,
+    semantic_scholar_api_key: Optional[str] = None,
     telemetry: Optional[dict] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Cauta articolele unui autor in Semantic Scholar si CrossRef in paralel.
-    Nu necesita chei API — ambele sunt servicii publice gratuite.
+    Cauta articolele unui autor in Semantic Scholar si CrossRef.
+    SS si CR ruleaza in paralel; SS foloseste API key daca e disponibil.
+    Fara API key SS: delay automat 1.2s/request pentru a respecta limita 1 req/s.
     """
     cutoff = datetime.now() - timedelta(days=days_back)
-    logger.info(f"[Author] Cauta articole de: '{author_name}' | cutoff={cutoff.date()}")
+    mode = "cu API key" if semantic_scholar_api_key else "fara API key (delay 1.2s/req)"
+    logger.info(f"[Author] '{author_name}' | cutoff={cutoff.date()} | SS {mode}")
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         ss_res, cr_res = await asyncio.gather(
-            _search_semantic_scholar(author_name, cutoff, client),
+            _search_semantic_scholar(author_name, cutoff, client, semantic_scholar_api_key),
             _search_crossref(author_name, cutoff, client),
             return_exceptions=True,
         )

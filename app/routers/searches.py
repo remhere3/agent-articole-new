@@ -253,6 +253,7 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
         return await search_articles(
             author_name=topic.keywords or topic.user_question,
             days_back=topic.days_back,
+            semantic_scholar_api_key=settings.semantic_scholar_api_key or None,
             telemetry=telemetry,
         )
 
