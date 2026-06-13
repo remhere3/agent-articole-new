@@ -58,7 +58,8 @@ def _best_url(work: dict) -> Optional[str]:
     if ids.get("pmid"):
         pmid = str(ids["pmid"]).replace("https://pubmed.ncbi.nlm.nih.gov/", "").strip("/")
         return f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-    return work.get("landing_page_url") or None
+    loc = work.get("primary_location") or {}
+    return loc.get("landing_page_url") or None
 
 
 async def _search_openalex(
@@ -112,15 +113,15 @@ async def _search_openalex(
             r = await client.get(
                 f"{OA_BASE}/works",
                 params={
-                    "filter": f"author.id:{author_id},from_publication_date:{from_date}",
+                    "filter": f"authorships.author.id:{author_id},from_publication_date:{from_date}",
                     "per-page": 100,
                     "sort": "publication_date:desc",
-                    "select": "id,title,authorships,publication_date,doi,open_access,ids,primary_location,abstract_inverted_index,landing_page_url",
+                    "select": "id,title,authorships,publication_date,doi,open_access,ids,primary_location,abstract_inverted_index",
                 },
                 headers={"User-Agent": USER_AGENT},
             )
             if r.status_code != 200:
-                logger.warning(f"[Author/OA] Works HTTP {r.status_code}")
+                logger.warning(f"[Author/OA] Works HTTP {r.status_code}: {r.text[:200]}")
                 continue
             works = r.json().get("results", [])
             logger.info(f"[Author/OA] '{author.get('display_name')}': {len(works)} lucrari recente")
