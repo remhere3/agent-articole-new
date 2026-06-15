@@ -171,6 +171,16 @@ def is_retryable_http(exc: Exception) -> bool:
     return False
 
 
+def describe_exc(e: BaseException) -> str:
+    """Descriere lizibila a unei exceptii, utila cand str(e) e gol.
+
+    Multe exceptii httpx (timeout, conexiune) au mesaj gol — fara tip, logul
+    ar arata doar '()'. Ex. ReadTimeout fara mesaj -> 'ReadTimeout'.
+    """
+    msg = str(e)
+    return f"{type(e).__name__}: {msg}" if msg else type(e).__name__
+
+
 async def retry_async(
     fn: Callable[[], Awaitable],
     *,
@@ -201,7 +211,8 @@ async def retry_async(
             delay = min(base_delay * (2 ** (attempt - 1)), max_delay)
             logger.warning(
                 "[retry] %s: incercarea %d/%d a esuat (%s); reincerc peste %.1fs",
-                label or getattr(fn, "__name__", "call"), attempt, attempts, e, delay,
+                label or getattr(fn, "__name__", "call"),
+                attempt, attempts, describe_exc(e), delay,
             )
             await asyncio.sleep(delay)
     raise last_exc  # type: ignore[misc]  # inaccesibil: ultima incercare arunca direct

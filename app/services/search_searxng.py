@@ -14,6 +14,7 @@ import httpx
 
 from app.services._utils import (
     author_in_result as _author_in_result,
+    describe_exc,
     domain as _domain,
     is_academic as _is_academic,
     is_retryable_http,
@@ -164,7 +165,7 @@ async def _searxng_search(
         logger.info(f"[SearXNG] '{query[:60]}' -> {len(results)} rezultate brute")
         return results[:max_results]
     except Exception as e:
-        logger.warning(f"[SearXNG] Eroare cautare: {e}")
+        logger.warning(f"[SearXNG] Eroare cautare: {describe_exc(e)}")
         return []
 
 
