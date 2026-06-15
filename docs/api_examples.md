@@ -35,9 +35,6 @@
 | GET | `/api/searches/results/export` | Export CSV sau JSON (fara limita) |
 | DELETE | `/api/searches/results/{id}` | Sterge un articol |
 | GET | `/api/searches/validate-provider/{provider}` | Valideaza conectivitate provider |
-| **Setari** | | |
-| GET | `/api/settings` | Lista setari curente |
-| PUT | `/api/settings/{key}` | Seteaza/actualizeaza o valoare |
 
 ---
 
@@ -160,7 +157,7 @@ for t in r.json():
 | `days_back` | int | Articole din ultimele N zile (1–365) | 7 |
 | `periodicity_hours` | float | Ruleaza la fiecare N ore (min 0.5) | 24 |
 | `timeout_seconds` | int | Timeout maxim pentru o cautare (30–3600) | 300 |
-| `provider` | string | `anthropic` / `tavily` / `ollama` / `searxng` | `anthropic` |
+| `provider` | string | `anthropic` / `tavily` / `ollama` / `searxng` / `author` | `anthropic` |
 | `active` | bool | Ruleaza automat | true |
 | `send_email` | bool | Trimite email dupa cautare | true |
 | `user_ids` | list[int] | Utilizatori abonati | [] |
@@ -514,7 +511,7 @@ curl -s http://localhost:8007/api/searches/validate-provider/ollama | python3 -m
 curl -s http://localhost:8007/api/searches/validate-provider/searxng | python3 -m json.tool
 ```
 ```python
-for provider in ["anthropic", "tavily", "ollama", "searxng"]:
+for provider in ["anthropic", "tavily", "ollama", "searxng", "author"]:
     r = httpx.get(f"http://localhost:8007/api/searches/validate-provider/{provider}",
                   timeout=10.0)
     result = r.json()
@@ -528,95 +525,16 @@ for provider in ["anthropic", "tavily", "ollama", "searxng"]:
 # {"ok": false, "message": "Anthropic error: authentication_error — invalid x-api-key"}
 ```
 
-Provideri acceptati: `anthropic`, `tavily`, `ollama`, `searxng`
+Provideri acceptati: `anthropic`, `tavily`, `ollama`, `searxng`, `author`
 
 ---
 
-## 5. Setari
-
-### GET /api/settings — lista setari
-
-Valorile sensibile (API keys, parole) sunt mascate partial.
-
-```bash
-curl -s http://localhost:8007/api/settings | python3 -m json.tool
-```
-```python
-r = httpx.get("http://localhost:8007/api/settings")
-for s in r.json():
-    print(f"{s['key']}: {s['value']}")
-```
+> **Configurarea (chei API, SMTP etc.) se face din fisierul `.env`**, nu prin API.
+> Vezi `app/config.py` si sectiunea „Toate variabilele .env" din `/documentation`.
 
 ---
 
-### PUT /api/settings/{key} — seteaza o valoare
-
-Chei disponibile: `anthropic_api_key`, `anthropic_model`, `tavily_api_key`,
-`ollama_base_url`, `ollama_model`, `ollama_api_key`, `searxng_base_url`,
-`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password`, `email_from`.
-
-```bash
-# API key Anthropic
-curl -s -X PUT http://localhost:8007/api/settings/anthropic_api_key \
-  -H "Content-Type: application/json" \
-  -d '{"key": "anthropic_api_key", "value": "sk-ant-..."}'
-
-# Model Anthropic
-curl -s -X PUT http://localhost:8007/api/settings/anthropic_model \
-  -H "Content-Type: application/json" \
-  -d '{"key": "anthropic_model", "value": "claude-opus-4-7"}'
-
-# API key Tavily
-curl -s -X PUT http://localhost:8007/api/settings/tavily_api_key \
-  -H "Content-Type: application/json" \
-  -d '{"key": "tavily_api_key", "value": "tvly-..."}'
-
-# Ollama URL si model
-curl -s -X PUT http://localhost:8007/api/settings/ollama_base_url \
-  -H "Content-Type: application/json" \
-  -d '{"key": "ollama_base_url", "value": "http://localhost:11434"}'
-
-curl -s -X PUT http://localhost:8007/api/settings/ollama_model \
-  -H "Content-Type: application/json" \
-  -d '{"key": "ollama_model", "value": "llama3.2"}'
-
-# Email SMTP
-curl -s -X PUT http://localhost:8007/api/settings/smtp_host \
-  -H "Content-Type: application/json" \
-  -d '{"key": "smtp_host", "value": "smtp.gmail.com"}'
-
-curl -s -X PUT http://localhost:8007/api/settings/smtp_user \
-  -H "Content-Type: application/json" \
-  -d '{"key": "smtp_user", "value": "you@gmail.com"}'
-
-curl -s -X PUT http://localhost:8007/api/settings/smtp_password \
-  -H "Content-Type: application/json" \
-  -d '{"key": "smtp_password", "value": "app_password_here"}'
-```
-```python
-BASE = "http://localhost:8007/api"
-
-def set_setting(key: str, value: str):
-    r = httpx.put(f"{BASE}/settings/{key}", json={"key": key, "value": value})
-    r.raise_for_status()
-    print(f"  {key} = salvat")
-
-# Configurare initiala completa
-set_setting("anthropic_api_key", "sk-ant-...")
-set_setting("anthropic_model",   "claude-sonnet-4-6")
-set_setting("tavily_api_key",    "tvly-...")
-set_setting("ollama_base_url",   "http://localhost:11434")
-set_setting("ollama_model",      "llama3.2")
-set_setting("smtp_host",         "smtp.gmail.com")
-set_setting("smtp_port",         "587")
-set_setting("smtp_user",         "you@gmail.com")
-set_setting("smtp_password",     "app_password")
-set_setting("email_from",        "Agent Articole <you@gmail.com>")
-```
-
----
-
-## 6. Exemplu complet end-to-end
+## 5. Exemplu complet end-to-end
 
 ```python
 import httpx
@@ -624,18 +542,16 @@ import httpx
 BASE = "http://localhost:8007/api"
 client = httpx.Client(timeout=120.0)
 
-# 1. Configureaza cheile API
-client.put(f"{BASE}/settings/anthropic_api_key",
-           json={"key": "anthropic_api_key", "value": "sk-ant-..."})
+# Cheile API (Anthropic / Tavily) si SMTP se configureaza in .env inainte de pornire.
 
-# 2. Creeaza utilizatori
+# 1. Creeaza utilizatori
 u1 = client.post(f"{BASE}/users",
                  json={"name": "Ana Ionescu", "email": "ana@research.ro"}).json()
 u2 = client.post(f"{BASE}/users",
                  json={"name": "Mihai Pop", "email": "mihai@research.ro"}).json()
 print(f"Utilizatori: {u1['id']}, {u2['id']}")
 
-# 3. Creeaza topic cu intrebare libera
+# 2. Creeaza topic cu intrebare libera
 topic = client.post(f"{BASE}/topics", json={
     "name": "Oncologie 2026",
     "user_question": (
@@ -651,12 +567,12 @@ topic = client.post(f"{BASE}/topics", json={
 }).json()
 print(f"Topic: #{topic['id']} — {topic['name']}")
 
-# 4. Declanseaza cautarea manual
+# 3. Declanseaza cautarea manual
 print("Caut articole...")
 run = client.post(f"{BASE}/searches/run/{topic['id']}").json()
 print(f"Rezultat: {run['status']} — {run['results_count']} articole in {run['provider']}")
 
-# 5. Afiseaza articolele
+# 4. Afiseaza articolele
 results = client.get(f"{BASE}/searches/results",
                      params={"topic_id": topic["id"]}).json()
 for i, a in enumerate(results, 1):
@@ -669,7 +585,7 @@ for i, a in enumerate(results, 1):
 
 ---
 
-## 7. Raspunsuri de eroare
+## 6. Raspunsuri de eroare
 
 Toate erorile returneaza JSON cu campul `detail`:
 
@@ -677,7 +593,7 @@ Toate erorile returneaza JSON cu campul `detail`:
 {"detail": "Topic not found"}
 {"detail": "Email already registered"}
 {"detail": "ANTHROPIC_API_KEY not configured"}
-{"detail": "provider must be one of {'anthropic', 'tavily', 'ollama', 'searxng'}"}
+{"detail": "provider must be one of {'anthropic', 'tavily', 'ollama', 'searxng', 'author'}"}
 {"detail": "Cooldown activ. Mai asteapta 45s."}
 ```
 
