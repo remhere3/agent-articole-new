@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator, model_validator, field_serializer
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, field_serializer
 from typing import Optional, List
 from datetime import datetime
 from datetime import timezone as _utc_tz
@@ -44,9 +44,11 @@ class UserOut(UserBase):
 # ── Topic ─────────────────────────────────────────────────────────────────────
 
 class TopicBase(BaseModel):
-    name: str
-    keywords: Optional[str] = None
-    user_question: Optional[str] = None
+    # Limite de lungime: 'keywords' si 'user_question' intra direct in prompt-ul
+    # trimis catre LLM, deci le marginim ca sa nu poata umfla contextul / costul.
+    name: str = Field(min_length=1, max_length=200)
+    keywords: Optional[str] = Field(default=None, max_length=1000)
+    user_question: Optional[str] = Field(default=None, max_length=2000)
     days_back: int = 7
     periodicity_hours: float = 24.0
     timeout_seconds: int = 300
@@ -95,9 +97,9 @@ class TopicCreate(TopicBase):
 
 
 class TopicUpdate(BaseModel):
-    name: Optional[str] = None
-    keywords: Optional[str] = None
-    user_question: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    keywords: Optional[str] = Field(default=None, max_length=1000)
+    user_question: Optional[str] = Field(default=None, max_length=2000)
     days_back: Optional[int] = None
     periodicity_hours: Optional[float] = None
     timeout_seconds: Optional[int] = None

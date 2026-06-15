@@ -187,7 +187,7 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">Nume topic *</label>
-            <input type="text" class="form-control" id="topic-name" placeholder="ex: AI Medical Imaging">
+            <input type="text" class="form-control" id="topic-name" maxlength="200" placeholder="ex: AI Medical Imaging">
           </div>
           <div class="col-md-6">
             <label class="form-label">Provider cautare *</label>
@@ -207,7 +207,7 @@
           </div>
           <div class="col-12">
             <label class="form-label">Intrebarea ta catre agent</label>
-            <textarea class="form-control" id="topic-user_question" rows="3"
+            <textarea class="form-control" id="topic-user_question" rows="3" maxlength="2000"
               placeholder='ex: "Da-mi toate articolele publicate in reviste de specialitate despre terapia genica in ultimele 7 zile"&#10;Daca lasi gol, agentul foloseste cuvintele cheie de mai jos.'></textarea>
             <div class="form-text text-primary">
               <i class="bi bi-stars me-1"></i>Daca completezi, agentul foloseste aceasta intrebare direct. Lasa gol pentru cautare automata din keywords.
@@ -215,7 +215,7 @@
           </div>
           <div class="col-12">
             <label class="form-label">Cuvinte cheie <span id="keywords-required-badge" class="badge bg-secondary" style="font-size:.7rem;vertical-align:middle;">optional daca ai completat intrebarea</span></label>
-            <textarea class="form-control" id="topic-keywords" rows="2"
+            <textarea class="form-control" id="topic-keywords" rows="2" maxlength="1000"
               placeholder="ex: deep learning, medical imaging, cancer detection"></textarea>
             <div class="form-text">Obligatoriu daca intrebarea de mai sus e goala. Separa termenii cu virgula.</div>
           </div>

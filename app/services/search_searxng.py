@@ -9,62 +9,17 @@ import logging
 import time
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from urllib.parse import urlparse
 
 import httpx
 
+from app.services._utils import (
+    domain as _domain,
+    is_academic as _is_academic,
+    parse_date as _parse_date,
+    strip_watermarks as _strip_watermarks,
+)
+
 logger = logging.getLogger(__name__)
-
-ACADEMIC_DOMAINS = [
-    "arxiv.org", "biorxiv.org", "medrxiv.org", "plos.org", "frontiersin.org",
-    "mdpi.com", "elifesciences.org", "zenodo.org", "scielo.org",
-    "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "nih.gov",
-    "europepmc.org", "semanticscholar.org",
-    "nature.com", "science.org", "cell.com", "springer.com", "wiley.com",
-    "tandfonline.com", "sciencedirect.com", "academic.oup.com",
-    "jamanetwork.com", "nejm.org", "thelancet.com",
-    "ieee.org", "acm.org", "iopscience.iop.org",
-    "rsc.org", "pubs.acs.org", "pubs.rsc.org",
-    "researchgate.net", "academia.edu",
-    "ecs.org", "ecst.ecsdl.org",
-    "nrel.gov",
-    "energy.gov", "hydrogen.energy.gov",
-    "irena.org",
-    "chemrxiv.org",
-    "biomedcentral.com",
-    "core.ac.uk",
-    # Rezolvatori DOI / agregatori — frecvente in SearXNG science
-    "doi.org",
-    "dx.doi.org",
-    "hdl.handle.net",
-    "ieeexplore.ieee.org",
-    "link.springer.com",
-    "onlinelibrary.wiley.com",
-    "dl.acm.org",
-    "hal.science",
-    "hal.archives-ouvertes.fr",
-]
-
-
-def _strip_watermarks(text: str) -> str:
-    import re
-    text = re.sub(
-        r'Authorized licensed use limited to:[^.]+\.\s*Downloaded on[^.]+\.\s*(?:UTC\s*)?(?:from[^.]+\.)?\s*Restrictions apply\.?',
-        '', text, flags=re.IGNORECASE
-    ).strip()
-    return text
-
-
-def _domain(url: str) -> str:
-    try:
-        return urlparse(url).netloc.replace("www.", "")
-    except Exception:
-        return ""
-
-
-def _is_academic(url: str) -> bool:
-    d = _domain(url)
-    return any(d == a or d.endswith("." + a) for a in ACADEMIC_DOMAINS)
 
 
 def _year_from_url(url: str) -> Optional[int]:
@@ -174,25 +129,6 @@ async def _resolve_date(url: str) -> Optional[datetime]:
     m = re.search(r'ncbi\.nlm\.nih\.gov/pubmed/(\d+)', url)
     if m:
         return await _lookup_date_pubmed(m.group(1))
-    return None
-
-
-def _parse_date(s: Optional[str]) -> Optional[datetime]:
-    if not s:
-        return None
-    # Perechile (lungime_reala_data, format) — len(fmt) != lungimea datei reale!
-    candidates = [
-        (20, "%Y-%m-%dT%H:%M:%SZ"),
-        (19, "%Y-%m-%dT%H:%M:%S"),
-        (10, "%Y-%m-%d"),
-        (7,  "%Y-%m"),
-    ]
-    text = str(s).strip()
-    for length, fmt in candidates:
-        try:
-            return datetime.strptime(text[:length], fmt)
-        except ValueError:
-            continue
     return None
 
 

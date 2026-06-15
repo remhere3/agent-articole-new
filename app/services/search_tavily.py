@@ -5,59 +5,18 @@ import logging
 import time
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from urllib.parse import urlparse
 
 from tavily import TavilyClient
 
+from app.services._utils import (
+    ACADEMIC_DOMAINS,
+    domain as _domain,
+    is_academic as _is_academic,
+    parse_date as _parse_date,
+    strip_watermarks as _strip_watermarks,
+)
+
 logger = logging.getLogger(__name__)
-
-
-def _strip_watermarks(text: str) -> str:
-    import re
-    return re.sub(
-        r'Authorized licensed use limited to:[^.]+\.\s*Downloaded on[^.]+\.\s*(?:UTC\s*)?(?:from[^.]+\.)?\s*Restrictions apply\.?',
-        '', text, flags=re.IGNORECASE
-    ).strip()
-
-
-ACADEMIC_DOMAINS = [
-    # Preprint / Open Access
-    "arxiv.org", "biorxiv.org", "medrxiv.org", "plos.org", "frontiersin.org",
-    "mdpi.com", "elifesciences.org", "zenodo.org", "scielo.org",
-    # Baze de date rezumate
-    "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "nih.gov",
-    "europepmc.org", "semanticscholar.org",
-    # Edituri mari
-    "nature.com", "science.org", "cell.com", "springer.com", "wiley.com",
-    "tandfonline.com", "sciencedirect.com", "academic.oup.com",
-    "jamanetwork.com", "nejm.org", "thelancet.com",
-    # Tehnic / CS
-    "ieee.org", "acm.org", "iopscience.iop.org",
-    # Chimie / Energie
-    "rsc.org", "pubs.acs.org", "pubs.rsc.org",
-    # Retele academice
-    "researchgate.net", "academia.edu",
-    # Energie / Hidrogen / Electroliza
-    "ecs.org", "ecst.ecsdl.org",                         # Electrochemical Society
-    "nrel.gov",                                           # National Renewable Energy Lab
-    "energy.gov", "hydrogen.energy.gov",                  # US Dept of Energy
-    "irena.org",                                          # Int'l Renewable Energy Agency
-    "chemrxiv.org",                                       # Preprint chimie
-    "biomedcentral.com",                                  # BioMed Central open access
-    "core.ac.uk",                                         # Agregator open access
-]
-
-
-def _domain(url: str) -> str:
-    try:
-        return urlparse(url).netloc.replace("www.", "")
-    except Exception:
-        return ""
-
-
-def _is_academic(url: str) -> bool:
-    d = _domain(url)
-    return any(d == a or d.endswith("." + a) for a in ACADEMIC_DOMAINS)
 
 
 def _arxiv_date_from_url(url: str) -> Optional[str]:
@@ -84,24 +43,6 @@ def _year_from_url(url: str) -> Optional[int]:
     years = re.findall(r'(?<!\d)(20[0-2]\d)(?!\d)', url)
     if years:
         return int(years[0])
-    return None
-
-
-def _parse_date(s: Optional[str]) -> Optional[datetime]:
-    if not s:
-        return None
-    candidates = [
-        (20, "%Y-%m-%dT%H:%M:%SZ"),
-        (19, "%Y-%m-%dT%H:%M:%S"),
-        (10, "%Y-%m-%d"),
-        (7,  "%Y-%m"),
-    ]
-    text = str(s).strip()
-    for length, fmt in candidates:
-        try:
-            return datetime.strptime(text[:length], fmt)
-        except ValueError:
-            continue
     return None
 
 

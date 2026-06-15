@@ -9,9 +9,10 @@ import logging
 import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from urllib.parse import urlparse
 
 import httpx
+
+from app.services._utils import domain as _domain, parse_date as _parse_date
 
 logger = logging.getLogger(__name__)
 
@@ -19,25 +20,6 @@ OA_BASE = "https://api.openalex.org"
 CR_BASE = "https://api.crossref.org"
 # OpenAlex recomanda email in User-Agent pentru "polite pool" (rate limit mai relaxat)
 USER_AGENT = "AgentArticole/1.0 (mailto:agent@icsi.ro)"
-
-
-def _domain(url: str) -> str:
-    try:
-        return urlparse(url).netloc.replace("www.", "")
-    except Exception:
-        return ""
-
-
-def _parse_date(s) -> Optional[datetime]:
-    if not s:
-        return None
-    text = str(s).strip()
-    for length, fmt in [(10, "%Y-%m-%d"), (7, "%Y-%m"), (4, "%Y")]:
-        try:
-            return datetime.strptime(text[:length], fmt)
-        except ValueError:
-            continue
-    return None
 
 
 def _name_matches(search_name: str, candidate_name: str) -> bool:

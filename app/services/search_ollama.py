@@ -12,23 +12,7 @@ from typing import List, Dict, Any, Optional
 
 import httpx
 
-
-def _parse_date(s: Optional[str]) -> Optional[datetime]:
-    if not s:
-        return None
-    candidates = [
-        (20, "%Y-%m-%dT%H:%M:%SZ"),
-        (19, "%Y-%m-%dT%H:%M:%S"),
-        (10, "%Y-%m-%d"),
-        (7,  "%Y-%m"),
-    ]
-    text = str(s).strip()
-    for length, fmt in candidates:
-        try:
-            return datetime.strptime(text[:length], fmt)
-        except ValueError:
-            continue
-    return None
+from app.services._utils import parse_date as _parse_date
 
 logger = logging.getLogger(__name__)
 

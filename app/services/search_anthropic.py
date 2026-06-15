@@ -11,14 +11,9 @@ from typing import List, Dict, Any, Optional
 
 import anthropic
 
+from app.services._utils import strip_watermarks as _strip_watermarks
+
 logger = logging.getLogger(__name__)
-
-
-def _strip_watermarks(text: str) -> str:
-    return re.sub(
-        r'Authorized licensed use limited to:[^.]+\.\s*Downloaded on[^.]+\.\s*(?:UTC\s*)?(?:from[^.]+\.)?\s*Restrictions apply\.?',
-        '', text, flags=re.IGNORECASE
-    ).strip()
 
 
 def _date_range_str(days_back: int) -> tuple[str, str, str]:
