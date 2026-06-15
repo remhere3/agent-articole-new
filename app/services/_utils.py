@@ -110,6 +110,47 @@ def is_academic(url: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Potrivire nume autor (cautari dupa persoana)
+# ---------------------------------------------------------------------------
+_NAME_PART_RE = re.compile(r'^[A-ZÁÉÍÓÚĂÂÎȘȚ][a-záéíóúăâîșț\-]+$')
+
+
+def looks_like_person_name(text: str) -> bool:
+    """Heuristica: 2-4 cuvinte, fiecare capitalizat, fara cifre (ex. 'Roxana Ionete')."""
+    parts = (text or "").strip().split()
+    if not (2 <= len(parts) <= 4):
+        return False
+    return all(_NAME_PART_RE.match(p) for p in parts)
+
+
+def _word_present(word: str, haystack: str) -> bool:
+    """True daca `word` apare ca termen intreg in `haystack` (ambele lowercase)."""
+    if not word:
+        return False
+    return re.search(rf'(?<!\w){re.escape(word)}(?!\w)', haystack) is not None
+
+
+def author_in_result(name: str, item: dict) -> bool:
+    """True daca rezultatul se refera la autorul cautat.
+
+    Cere ca ATAT prenumele cat si numele de familie sa apara ca termeni intregi
+    in titlu / continut / summary (in orice ordine). Astfel se resping potrivirile
+    pe un singur cuvant (ex. cautand 'Roxana Ionete', un articol cu doar 'Roxana'
+    NU trece), pastrand variantele 'Ionete, Roxana' sau 'Roxana Elena Ionete'.
+    """
+    haystack = " ".join([
+        item.get("title") or "",
+        item.get("content") or "",
+        item.get("summary") or "",
+    ]).lower()
+    parts = [p for p in (name or "").strip().split() if p]
+    if len(parts) < 2:
+        return bool(parts) and _word_present(parts[0].lower(), haystack)
+    first, last = parts[0].lower(), parts[-1].lower()
+    return _word_present(first, haystack) and _word_present(last, haystack)
+
+
+# ---------------------------------------------------------------------------
 # Reincercari cu backoff exponential pentru apeluri externe
 # ---------------------------------------------------------------------------
 # Coduri HTTP tranzitorii care merita reincercate (rate limit + erori server).

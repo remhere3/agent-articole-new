@@ -10,8 +10,10 @@ from tavily import TavilyClient
 
 from app.services._utils import (
     ACADEMIC_DOMAINS,
+    author_in_result as _author_in_result,
     domain as _domain,
     is_academic as _is_academic,
+    looks_like_person_name as _looks_like_person_name,
     parse_date as _parse_date,
     retry_async,
     strip_watermarks as _strip_watermarks,
@@ -45,35 +47,6 @@ def _year_from_url(url: str) -> Optional[int]:
     if years:
         return int(years[0])
     return None
-
-
-def _looks_like_person_name(text: str) -> bool:
-    """Heuristica simpla: 2-4 cuvinte, fiecare capitalizat, fara cifre."""
-    import re
-    parts = text.strip().split()
-    if not (2 <= len(parts) <= 4):
-        return False
-    return all(re.match(r'^[A-ZÁÉÍÓÚĂÂÎȘȚ][a-záéíóúăâîșț\-]+$', p) for p in parts)
-
-
-def _author_in_result(name: str, item: Dict) -> bool:
-    """Verifica daca numele complet al autorului apare ca fraza in titlu sau continut."""
-    haystack = " ".join([
-        item.get("title") or "",
-        item.get("content") or "",
-    ]).lower()
-    full = name.lower()
-    if full in haystack:
-        return True
-    # Accepta si varianta "Botoran, Oana" sau "Botoran O."
-    parts = name.split()
-    if len(parts) >= 2:
-        last, first = parts[-1].lower(), parts[0].lower()
-        if f"{last}, {first}" in haystack:
-            return True
-        if f"{last} {first[0]}." in haystack:
-            return True
-    return False
 
 
 async def search_articles(

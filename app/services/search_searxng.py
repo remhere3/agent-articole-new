@@ -13,9 +13,11 @@ from typing import List, Dict, Any, Optional
 import httpx
 
 from app.services._utils import (
+    author_in_result as _author_in_result,
     domain as _domain,
     is_academic as _is_academic,
     is_retryable_http,
+    looks_like_person_name as _looks_like_person_name,
     parse_date as _parse_date,
     retry_async,
     strip_watermarks as _strip_watermarks,
@@ -222,6 +224,17 @@ async def search_articles(
 
     if telemetry is not None:
         telemetry["api_calls"] = searxng_calls
+
+    # Cautare dupa autor: pastreaza doar rezultatele care contin numele complet
+    # (prenume + nume). Altfel motorul intoarce si articole care prind doar un
+    # cuvant din nume (ex. cautand "Roxana Ionete" -> articole cu doar "Roxana").
+    if _looks_like_person_name(keywords):
+        before = len(collected)
+        collected = [it for it in collected if _author_in_result(keywords, it)]
+        logger.info(
+            f"[SearXNG] Cautare dupa autor '{keywords}': {len(collected)}/{before} "
+            f"rezultate contin numele complet"
+        )
 
     if not collected:
         logger.info("[SearXNG] Nu s-au gasit rezultate brute")
