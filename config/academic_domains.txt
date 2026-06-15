@@ -1,0 +1,78 @@
+# Domenii academice recunoscute de Agent Articole.
+#
+# Folosit de app/services/_utils.py (is_academic / ACADEMIC_DOMAINS):
+#   - articolele FARA data confirmata sunt acceptate doar daca provin de pe un
+#     domeniu din aceasta lista;
+#   - providerul Tavily il foloseste pentru include_domains (cautare academica).
+#
+# Format: un domeniu pe linie. Liniile goale si tot ce urmeaza dupa '#' sunt
+# ignorate. Se accepta si comentarii pe aceeasi linie (dupa domeniu).
+# Subdomeniile se potrivesc automat (ex. "ieee.org" prinde "ieeexplore.ieee.org").
+# Modifica acest fisier fara sa atingi codul; se reincarca la repornirea aplicatiei.
+
+# ── Preprint / Open Access ───────────────────────────────────────────────
+arxiv.org
+biorxiv.org
+medrxiv.org
+plos.org
+frontiersin.org
+mdpi.com
+elifesciences.org
+zenodo.org
+scielo.org
+
+# ── Baze de date rezumate ────────────────────────────────────────────────
+pubmed.ncbi.nlm.nih.gov
+ncbi.nlm.nih.gov
+nih.gov
+europepmc.org
+semanticscholar.org
+
+# ── Edituri mari ─────────────────────────────────────────────────────────
+nature.com
+science.org
+cell.com
+springer.com
+wiley.com
+tandfonline.com
+sciencedirect.com
+academic.oup.com
+jamanetwork.com
+nejm.org
+thelancet.com
+
+# ── Tehnic / CS ──────────────────────────────────────────────────────────
+ieee.org
+acm.org
+iopscience.iop.org
+
+# ── Chimie / Energie ─────────────────────────────────────────────────────
+rsc.org
+pubs.acs.org
+pubs.rsc.org
+
+# ── Retele academice ─────────────────────────────────────────────────────
+researchgate.net
+academia.edu
+
+# ── Energie / Hidrogen / Electroliza ─────────────────────────────────────
+ecs.org              # Electrochemical Society
+ecst.ecsdl.org       # Electrochemical Society
+nrel.gov             # National Renewable Energy Lab
+energy.gov           # US Dept of Energy
+hydrogen.energy.gov  # US Dept of Energy
+irena.org            # Int'l Renewable Energy Agency
+chemrxiv.org         # Preprint chimie
+biomedcentral.com    # BioMed Central open access
+core.ac.uk           # Agregator open access
+
+# ── Rezolvatori DOI / agregatori (frecventi in SearXNG science) ──────────
+doi.org
+dx.doi.org
+hdl.handle.net
+ieeexplore.ieee.org
+link.springer.com
+onlinelibrary.wiley.com
+dl.acm.org
+hal.science
+hal.archives-ouvertes.fr

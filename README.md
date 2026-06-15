@@ -54,7 +54,7 @@ agent_articole/
 │   │   ├── topics.py        # CRUD topicuri + gestionare utilizatori
 │   │   └── searches.py      # Cautari manuale + rezultate + istoric
 │   ├── services/
-│   │   ├── _utils.py            # Utilitare comune: parse_date, strip_watermarks, retry_async, ACADEMIC_DOMAINS
+│   │   ├── _utils.py            # Utilitare comune: parse_date, strip_watermarks, retry_async, domenii academice
 │   │   ├── search_anthropic.py  # Claude + web_search tool
 │   │   ├── search_tavily.py     # Tavily direct
 │   │   ├── search_ollama.py     # Ollama + Tavily ca tool
@@ -68,6 +68,8 @@ agent_articole/
 ├── static/
 │   ├── css/style.css
 │   └── js/app.js
+├── config/
+│   └── academic_domains.txt # Lista domenii academice (editabila fara cod)
 ├── docs/
 │   └── api_examples.md      # Exemple curl + Python
 ├── .env.example

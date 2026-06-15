@@ -8,6 +8,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Awaitable, Callable, Optional
 from urllib.parse import urlparse
 
@@ -62,38 +63,36 @@ def parse_date(s) -> Optional[datetime]:
 # ---------------------------------------------------------------------------
 # Domenii academice
 # ---------------------------------------------------------------------------
-# Lista consolidata (superset din search_tavily + search_searxng).
-ACADEMIC_DOMAINS = [
-    # Preprint / Open Access
-    "arxiv.org", "biorxiv.org", "medrxiv.org", "plos.org", "frontiersin.org",
-    "mdpi.com", "elifesciences.org", "zenodo.org", "scielo.org",
-    # Baze de date rezumate
-    "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "nih.gov",
-    "europepmc.org", "semanticscholar.org",
-    # Edituri mari
-    "nature.com", "science.org", "cell.com", "springer.com", "wiley.com",
-    "tandfonline.com", "sciencedirect.com", "academic.oup.com",
-    "jamanetwork.com", "nejm.org", "thelancet.com",
-    # Tehnic / CS
-    "ieee.org", "acm.org", "iopscience.iop.org",
-    # Chimie / Energie
-    "rsc.org", "pubs.acs.org", "pubs.rsc.org",
-    # Retele academice
-    "researchgate.net", "academia.edu",
-    # Energie / Hidrogen / Electroliza
-    "ecs.org", "ecst.ecsdl.org",                         # Electrochemical Society
-    "nrel.gov",                                           # National Renewable Energy Lab
-    "energy.gov", "hydrogen.energy.gov",                  # US Dept of Energy
-    "irena.org",                                          # Int'l Renewable Energy Agency
-    "chemrxiv.org",                                       # Preprint chimie
-    "biomedcentral.com",                                  # BioMed Central open access
-    "core.ac.uk",                                         # Agregator open access
-    # Rezolvatori DOI / agregatori — frecvente in SearXNG science
-    "doi.org", "dx.doi.org", "hdl.handle.net",
-    "ieeexplore.ieee.org", "link.springer.com",
-    "onlinelibrary.wiley.com", "dl.acm.org",
-    "hal.science", "hal.archives-ouvertes.fr",
-]
+# Lista e mentinuta in afara codului, in config/academic_domains.txt, ca sa
+# poata fi editata fara modificari de cod. Se incarca o singura data, la import.
+ACADEMIC_DOMAINS_FILE = Path(__file__).resolve().parents[2] / "config" / "academic_domains.txt"
+
+
+def _load_academic_domains(path: Path = ACADEMIC_DOMAINS_FILE) -> list:
+    """Citeste domeniile din fisierul de config (un domeniu pe linie).
+
+    Ignora liniile goale si comentariile ('#', inclusiv inline). Domeniile sunt
+    normalizate la litere mici si deduplicate, pastrand ordinea. Daca fisierul
+    lipseste sau e ilizibil, logheaza o eroare si intoarce o lista goala.
+    """
+    domains: list = []
+    seen: set = set()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as e:
+        logger.error("Nu pot citi fisierul cu domenii academice (%s): %s", path, e)
+        return domains
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip().lower()
+        if line and line not in seen:
+            seen.add(line)
+            domains.append(line)
+    if not domains:
+        logger.warning("Lista de domenii academice e goala (%s)", path)
+    return domains
+
+
+ACADEMIC_DOMAINS = _load_academic_domains()
 
 
 def domain(url: str) -> str:

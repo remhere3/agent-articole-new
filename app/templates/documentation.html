@@ -861,7 +861,7 @@ body {
         <strong style="color:#c45c00;"><i class="bi bi-calendar-check me-1"></i>Filtrare data stricta — doua etape garantate</strong><br>
         <strong>Etapa 1 (API nativ):</strong> <code>days=N</code> la Tavily; prompt cu data explicita la Claude; filtru client-side la SearXNG (nu suporta <code>time_range</code> pe toate motoarele).<br>
         <strong>Etapa 2 (Python post-procesare):</strong> dupa ce LLM-ul sau API-ul returneaza articolele, Python re-valideaza fiecare data cu <code>parse_date()</code> si exclude strict orice articol cu <code>pub_dt &lt; cutoff</code>. Aplicat la toti providerii.<br>
-        Articolele fara data confirmata sunt acceptate doar daca provin de pe domenii academice recunoscute (<code>ACADEMIC_DOMAINS</code>).
+        Articolele fara data confirmata sunt acceptate doar daca provin de pe domenii academice recunoscute (lista editabila in <code>config/academic_domains.txt</code>).
         Summary-urile sunt curatate automat de watermarks IEEE (<code>strip_watermarks()</code>). Toate aceste utilitare sunt consolidate in <code>app/services/_utils.py</code>.
       </div>
 
@@ -1517,7 +1517,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
         </tr>
         <tr>
           <td>16</td>
-          <td><strong>Modul utilitar comun</strong> — <code>app/services/_utils.py</code> consolideaza functiile care erau duplicate (copy-paste) in cei 5 provideri: <code>strip_watermarks</code>, <code>parse_date</code>, <code>domain</code>, <code>is_academic</code>, <code>ACADEMIC_DOMAINS</code>. <code>parse_date</code> unificat e superset (ISO-cu-ora + an-singur)</td>
+          <td><strong>Modul utilitar comun</strong> — <code>app/services/_utils.py</code> consolideaza functiile care erau duplicate (copy-paste) in cei 5 provideri: <code>strip_watermarks</code>, <code>parse_date</code>, <code>domain</code>, <code>is_academic</code>, <code>ACADEMIC_DOMAINS</code>. <code>parse_date</code> unificat e superset (ISO-cu-ora + an-singur). Lista de domenii academice e externalizata in <code>config/academic_domains.txt</code> (editabila fara cod)</td>
           <td>Un fix de regex sau o lista noua de domenii se face intr-un singur loc; comportament consistent intre provideri (inainte, cele 4 copii <code>parse_date</code> difereau)</td>
         </tr>
         <tr>
