@@ -15,7 +15,9 @@ import httpx
 from app.services._utils import (
     domain as _domain,
     is_academic as _is_academic,
+    is_retryable_http,
     parse_date as _parse_date,
+    retry_async,
     strip_watermarks as _strip_watermarks,
 )
 
@@ -146,11 +148,16 @@ async def _searxng_search(
         "categories": categories,
         "language": "en",
     }
-    try:
+    async def _do() -> dict:
         async with httpx.AsyncClient(timeout=30.0) as client:
             r = await client.get(url, params=params)
             r.raise_for_status()
-            data = r.json()
+            return r.json()
+
+    try:
+        data = await retry_async(
+            _do, retry_on=is_retryable_http, label=f"SearXNG '{query[:40]}'"
+        )
         results = data.get("results", [])
         logger.info(f"[SearXNG] '{query[:60]}' -> {len(results)} rezultate brute")
         return results[:max_results]
@@ -352,11 +359,17 @@ async def _ollama_generate(
 
     url = f"{base_url.rstrip('/')}/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": False, "format": "json"}
-    try:
+
+    async def _do() -> str:
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(url, json=payload, headers=headers)
             r.raise_for_status()
-            text = r.json().get("response", "")
+            return r.json().get("response", "")
+
+    try:
+        text = await retry_async(
+            _do, retry_on=is_retryable_http, label="SearXNG+Ollama generate"
+        )
         return _parse_json_array(text)
     except Exception as e:
         logger.warning(f"[SearXNG+Ollama] generate error: {e}")

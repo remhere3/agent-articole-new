@@ -13,6 +13,7 @@ from app.services._utils import (
     domain as _domain,
     is_academic as _is_academic,
     parse_date as _parse_date,
+    retry_async,
     strip_watermarks as _strip_watermarks,
 )
 
@@ -118,15 +119,18 @@ async def search_articles(
         try:
             t0 = time.perf_counter()
             logger.info(f"[Tavily] [{qi}] Cautare academica...")
-            r1 = await asyncio.to_thread(
-                client.search,
-                query=query,
-                search_depth="advanced",
-                include_domains=ACADEMIC_DOMAINS,
-                days=days_back,
-                max_results=10,
-                include_answer=False,
-                include_raw_content=False,
+            r1 = await retry_async(
+                lambda: asyncio.to_thread(
+                    client.search,
+                    query=query,
+                    search_depth="advanced",
+                    include_domains=ACADEMIC_DOMAINS,
+                    days=days_back,
+                    max_results=10,
+                    include_answer=False,
+                    include_raw_content=False,
+                ),
+                label=f"Tavily academic q{qi}",
             )
             _tavily_calls += 1
             n_new = sum(1 for item in r1.get("results", []) if item.get("url", "").strip() not in seen)
@@ -143,14 +147,17 @@ async def search_articles(
         try:
             t0 = time.perf_counter()
             logger.info(f"[Tavily] [{qi}] Cautare generala...")
-            r2 = await asyncio.to_thread(
-                client.search,
-                query=f"scientific paper {query}",
-                search_depth="advanced",
-                days=days_back,
-                max_results=7,
-                include_answer=False,
-                include_raw_content=False,
+            r2 = await retry_async(
+                lambda: asyncio.to_thread(
+                    client.search,
+                    query=f"scientific paper {query}",
+                    search_depth="advanced",
+                    days=days_back,
+                    max_results=7,
+                    include_answer=False,
+                    include_raw_content=False,
+                ),
+                label=f"Tavily general q{qi}",
             )
             _tavily_calls += 1
             n_new = sum(1 for item in r2.get("results", []) if item.get("url", "").strip() not in seen)

@@ -4,10 +4,16 @@ Aceste functii erau duplicate (copy-paste) in search_anthropic / search_tavily /
 search_searxng / search_ollama / search_author. Le-am consolidat aici ca un fix
 de regex sau o noua lista de domenii sa se faca intr-un singur loc.
 """
+import asyncio
+import logging
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 from urllib.parse import urlparse
+
+import httpx
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Watermark-uri (IEEE / biblioteci universitare)
@@ -102,3 +108,59 @@ def is_academic(url: str) -> bool:
     """True daca domeniul URL-ului e in lista academica (sau subdomeniu al ei)."""
     d = domain(url)
     return any(d == a or d.endswith("." + a) for a in ACADEMIC_DOMAINS)
+
+
+# ---------------------------------------------------------------------------
+# Reincercari cu backoff exponential pentru apeluri externe
+# ---------------------------------------------------------------------------
+# Coduri HTTP tranzitorii care merita reincercate (rate limit + erori server).
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+
+def is_retryable_http(exc: Exception) -> bool:
+    """True pentru erori httpx tranzitorii: timeout, conexiune sau status 429/5xx.
+
+    Erorile 'definitive' (400/401/403/404 etc.) intorc False — nu are sens sa le
+    reincercam (cheie gresita, URL inexistent...).
+    """
+    if isinstance(exc, (httpx.TimeoutException, httpx.TransportError)):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in _RETRYABLE_STATUS
+    return False
+
+
+async def retry_async(
+    fn: Callable[[], Awaitable],
+    *,
+    attempts: int = 3,
+    base_delay: float = 2.0,
+    max_delay: float = 30.0,
+    retry_on: Optional[Callable[[Exception], bool]] = None,
+    label: str = "",
+):
+    """Apeleaza fn() (coroutine fara argumente) cu reincercari si backoff exponential.
+
+    - attempts: numarul total de incercari (inclusiv prima).
+    - base_delay: intarzierea dupa prima esuare; se dubleaza la fiecare reincercare
+      (2s, 4s, 8s...), plafonata la max_delay.
+    - retry_on(exc) -> bool: daca e dat, doar erorile pentru care intoarce True sunt
+      reincercate; restul sunt aruncate imediat. Implicit: orice exceptie.
+
+    Arunca ultima exceptie daca toate incercarile esueaza.
+    """
+    last_exc: Optional[Exception] = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return await fn()
+        except Exception as e:  # noqa: BLE001 — filtram prin retry_on
+            last_exc = e
+            if attempt >= attempts or (retry_on is not None and not retry_on(e)):
+                raise
+            delay = min(base_delay * (2 ** (attempt - 1)), max_delay)
+            logger.warning(
+                "[retry] %s: incercarea %d/%d a esuat (%s); reincerc peste %.1fs",
+                label or getattr(fn, "__name__", "call"), attempt, attempts, e, delay,
+            )
+            await asyncio.sleep(delay)
+    raise last_exc  # type: ignore[misc]  # inaccesibil: ultima incercare arunca direct

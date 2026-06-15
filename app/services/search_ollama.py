@@ -12,7 +12,11 @@ from typing import List, Dict, Any, Optional
 
 import httpx
 
-from app.services._utils import parse_date as _parse_date
+from app.services._utils import (
+    is_retryable_http,
+    parse_date as _parse_date,
+    retry_async,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -132,11 +136,15 @@ async def _ollama_generate(
     """Endpoint local Ollama: POST /api/generate"""
     url = f"{base_url.rstrip('/')}/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": False, "format": "json"}
-    try:
+
+    async def _do() -> str:
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(url, json=payload, headers=_headers(api_key))
             r.raise_for_status()
-            text = r.json().get("response", "")
+            return r.json().get("response", "")
+
+    try:
+        text = await retry_async(_do, retry_on=is_retryable_http, label="Ollama generate")
         return _parse_json_array(text)
     except Exception as e:
         logger.warning(f"[Ollama] generate error: {e}")
@@ -156,11 +164,14 @@ async def _ollama_chat(
         "messages": [{"role": "user", "content": prompt}],
         "response_format": {"type": "json_object"},
     }
-    try:
+    async def _do() -> str:
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(url, json=payload, headers=_headers(api_key))
             r.raise_for_status()
-            text = r.json()["choices"][0]["message"]["content"]
+            return r.json()["choices"][0]["message"]["content"]
+
+    try:
+        text = await retry_async(_do, retry_on=is_retryable_http, label="Ollama Cloud chat")
         return _parse_json_array(text)
     except Exception as e:
         logger.warning(f"[Ollama Cloud] chat error: {e}")
