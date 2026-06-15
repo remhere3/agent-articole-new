@@ -13,6 +13,7 @@ venv/
 # Database
 *.db
 *.sqlite3
+*.db.backup
 
 # Logs
 *.log
