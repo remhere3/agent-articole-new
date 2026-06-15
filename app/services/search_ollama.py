@@ -13,7 +13,9 @@ from typing import List, Dict, Any, Optional
 import httpx
 
 from app.services._utils import (
+    author_in_result as _author_in_result,
     is_retryable_http,
+    looks_like_person_name as _looks_like_person_name,
     parse_date as _parse_date,
     retry_async,
 )
@@ -63,6 +65,20 @@ async def search_articles(
     if not raw_results:
         logger.info("[Ollama] Tavily nu a returnat rezultate — opresc")
         return []
+
+    # Cautare dupa autor: pastreaza doar rezultatele care contin numele complet.
+    # Detectia se face pe `keywords` (campul cu numele), nu pe `query` — query
+    # poate fi user_question (o fraza intreaga) care nu arata a nume de persoana.
+    if _looks_like_person_name(keywords):
+        before = len(raw_results)
+        raw_results = [r for r in raw_results if _author_in_result(keywords, r)]
+        logger.info(
+            f"[Ollama] Cautare dupa autor '{keywords}': {len(raw_results)}/{before} "
+            f"rezultate contin numele complet"
+        )
+        if not raw_results:
+            logger.info("[Ollama] Niciun rezultat cu numele complet al autorului — opresc")
+            return []
 
     cutoff_dt = datetime.now() - timedelta(days=days_back)
     cutoff = cutoff_dt.strftime("%Y-%m-%d")

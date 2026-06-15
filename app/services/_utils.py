@@ -142,6 +142,7 @@ def author_in_result(name: str, item: dict) -> bool:
         item.get("title") or "",
         item.get("content") or "",
         item.get("summary") or "",
+        item.get("authors") or "",
     ]).lower()
     parts = [p for p in (name or "").strip().split() if p]
     if len(parts) < 2:
