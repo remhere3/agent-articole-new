@@ -21,12 +21,15 @@ elifesciences.org
 zenodo.org
 scielo.org
 
-# ── Baze de date rezumate ────────────────────────────────────────────────
+# ── Baze de date / indexare / citari ─────────────────────────────────────
 pubmed.ncbi.nlm.nih.gov
 ncbi.nlm.nih.gov
 nih.gov
 europepmc.org
 semanticscholar.org
+scopus.com
+webofscience.com
+scholar.google.com
 
 # ── Edituri mari ─────────────────────────────────────────────────────────
 nature.com
