@@ -711,6 +711,21 @@ body {
             fereastra <code>days_back</code>. Determinist si cvasi-complet.</li>
         </ul>
         <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>Tratarea numelor in <code>anthropic</code> (netraducere + diacritice).</strong>
+          Promptul <strong>nu mai traduce numele proprii</strong> in engleza — traduce doar termenii
+          <em>descriptivi</em> ai topicului. Un nume tradus sau alterat (ex. transliterat) devine o alta
+          interogare si rateaza articolele autorului real.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          In plus, <strong>diacriticele romanesti</strong> (<code>ș î ă ț â</code>) fac numele fragile pe web:
+          multe indexuri stocheaza forma <em>fara</em> diacritice (ex. <code>Ștefanescu</code> este indexat
+          frecvent ca <code>Stefanescu</code>), iar unele surse pastreaza forma cu diacritice. De aceea
+          promptul cere modelului sa incerce <strong>variante de nume</strong>: cu si fara diacritice,
+          ordine diferita (<em>Prenume Nume</em> / <em>Nume Prenume</em>) si forma cu initiala
+          (<code>N. Stefanescu</code>). Astfel acoperirea creste, dar — fiind tot cautare web — ramane partiala
+          fata de <code>author</code>.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
           <strong>Exemplu real</strong> (topic "articole Nicolae Georgescu", <code>days_back=3650</code>):
           <code>author</code> → <strong>12 articole</strong>; <code>anthropic</code> → <strong>5</strong> (toate
           un subset al celor 12; intr-o alta rulare 4, set partial diferit, incluzand 2 publicatii locale / de

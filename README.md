@@ -110,9 +110,13 @@ la o rulare la alta. Nu este un bug — sunt **doua mecanisme fundamental diferi
 2. **Se opreste devreme din proprie initiativa.** Chiar daca `max_uses` permite mai
    multe cautari, modelul tinde sa se opreasca dupa cateva — deci marirea bugetului de
    cautari **nu** creste neaparat acoperirea.
-3. **Numele proprii sunt fragile pe web.** Diacriticele (ex. `Ștefanescu` vs `Stefanescu`),
-   ordinea numelui si formele cu initiala produc rezultate diferite; promptul cere
-   explicit variante de nume, dar acoperirea ramane partiala.
+3. **Numele proprii sunt fragile pe web.** Promptul `anthropic` **nu traduce numele
+   proprii** in engleza (doar termenii descriptivi ai topicului) — un nume tradus sau
+   transliterat devine alta interogare si rateaza autorul real. In plus, **diacriticele
+   romanesti** (`ș î ă ț â`) sunt problematice: multe indexuri stocheaza forma *fara*
+   diacritice (ex. `Ștefanescu` indexat ca `Stefanescu`), altele o pastreaza. De aceea
+   promptul cere variante de nume (cu/fara diacritice, ordine diferita, forma cu
+   initiala) — acoperirea creste, dar ramane partiala fata de `author`.
 4. **Non-determinism intrinsec.** Web search-ul returneaza altceva la fiecare rulare,
    deci numarul si setul de articole fluctueaza (ex. 5 intr-o rulare, 4 in urmatoarea,
    cu titluri partial diferite).
