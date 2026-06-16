@@ -13,6 +13,7 @@ from typing import List, Dict, Any, Optional
 import httpx
 
 from app.services._utils import (
+    _as_text,
     author_in_result as _author_in_result,
     describe_exc,
     domain as _domain,
@@ -273,7 +274,7 @@ async def search_articles(
             "url": url,
             "source": _domain(url),
             "published_date": pub_dt.strftime("%Y-%m-%d") if pub_dt else None,
-            "summary": _strip_watermarks((item.get("content") or "")[:300])[:280].strip() or None,
+            "summary": _strip_watermarks(_as_text(item.get("content"))[:300])[:280].strip() or None,
         }
         if pub_dt is None:
             needs_fetch.append(entry)

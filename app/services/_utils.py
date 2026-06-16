@@ -123,6 +123,20 @@ def looks_like_person_name(text: str) -> bool:
     return all(_NAME_PART_RE.match(p) for p in parts)
 
 
+def _as_text(value) -> str:
+    """Converteste orice valoare in text pentru cautare.
+
+    SearXNG poate intoarce campuri (ex. `authors`) ca lista, nu string —
+    `" ".join([...])` ar crapa cu 'expected str instance, list found'.
+    Aici aplatizam liste/tuple si convertim scalarele in str.
+    """
+    if not value:
+        return ""
+    if isinstance(value, (list, tuple)):
+        return " ".join(_as_text(v) for v in value)
+    return str(value)
+
+
 def _word_present(word: str, haystack: str) -> bool:
     """True daca `word` apare ca termen intreg in `haystack` (ambele lowercase)."""
     if not word:
@@ -138,12 +152,9 @@ def author_in_result(name: str, item: dict) -> bool:
     pe un singur cuvant (ex. cautand 'Roxana Ionete', un articol cu doar 'Roxana'
     NU trece), pastrand variantele 'Ionete, Roxana' sau 'Roxana Elena Ionete'.
     """
-    haystack = " ".join([
-        item.get("title") or "",
-        item.get("content") or "",
-        item.get("summary") or "",
-        item.get("authors") or "",
-    ]).lower()
+    haystack = " ".join(
+        _as_text(item.get(k)) for k in ("title", "content", "summary", "authors")
+    ).lower()
     parts = [p for p in (name or "").strip().split() if p]
     if len(parts) < 2:
         return bool(parts) and _word_present(parts[0].lower(), haystack)
