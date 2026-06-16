@@ -468,13 +468,19 @@ def preview_email(run_id: int, db: Session = Depends(get_db)):
 @router.get("/results/export")
 def export_results(
     topic_id: Optional[int] = None,
+    run_id: Optional[int] = None,
     format: str = "json",
     db: Session = Depends(get_db),
 ):
-    """Exporta rezultatele ca CSV sau JSON (fara limita artificiala)."""
+    """Exporta rezultatele ca CSV sau JSON (fara limita artificiala).
+
+    Filtrare optionala dupa topic_id si/sau run_id (export per rulare).
+    """
     q = db.query(models.SearchResult).order_by(models.SearchResult.id.desc())
     if topic_id:
         q = q.filter(models.SearchResult.topic_id == topic_id)
+    if run_id:
+        q = q.filter(models.SearchResult.run_id == run_id)
     results = q.all()
 
     if format == "csv":
@@ -488,7 +494,12 @@ def export_results(
                 r.source, r.published_date, r.summary, r.provider,
                 r.found_at.isoformat() if r.found_at else "",
             ])
-        filename = f"articole_topic{topic_id}.csv" if topic_id else "articole_toate.csv"
+        if run_id:
+            filename = f"articole_run{run_id}.csv"
+        elif topic_id:
+            filename = f"articole_topic{topic_id}.csv"
+        else:
+            filename = "articole_toate.csv"
         return Response(
             content=output.getvalue(),
             media_type="text/csv; charset=utf-8",

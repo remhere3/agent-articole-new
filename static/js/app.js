@@ -458,8 +458,13 @@ async function loadRuns() {
       const ms = new Date(r.finished_at) - new Date(r.started_at);
       dur = (ms / 1000).toFixed(1) + 's';
     }
-    const previewBtn = r.status === 'success' && r.results_count > 0
+    const hasResults = r.results_count > 0;
+    const previewBtn = r.status === 'success' && hasResults
       ? `<a href="/api/searches/runs/${r.id}/preview-email" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Previzualizare email"><i class="bi bi-eye"></i></a>`
+      : '';
+    const exportBtns = hasResults
+      ? `<button class="btn btn-sm btn-outline-secondary py-0 px-1" title="Export CSV (aceasta rulare)" onclick="exportRun(${r.id}, 'csv')"><i class="bi bi-filetype-csv"></i></button>` +
+        `<button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1" title="Export JSON (aceasta rulare)" onclick="exportRun(${r.id}, 'json')"><i class="bi bi-filetype-json"></i></button>`
       : '';
     return '<tr>' +
       '<td><input type="checkbox" class="run-cb" value="' + r.id + '" onchange="_updateRunsDeleteBtn()"></td>' +
@@ -475,7 +480,7 @@ async function loadRuns() {
       '<td class="text-danger small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">' +
         (r.error_message ? esc(r.error_message.substring(0, 80)) : '') +
       '</td>' +
-      '<td>' + previewBtn + '</td>' +
+      '<td style="white-space:nowrap">' + previewBtn + (previewBtn && exportBtns ? ' ' : '') + exportBtns + '</td>' +
     '</tr>';
   }).join('');
 
@@ -810,6 +815,10 @@ function exportArticles(format) {
   const topicId = document.getElementById('filter-articles-topic').value;
   const q = topicId ? `&topic_id=${topicId}` : '';
   window.location.href = `/api/searches/results/export?format=${format}${q}`;
+}
+
+function exportRun(runId, format) {
+  window.location.href = `/api/searches/results/export?format=${format}&run_id=${runId}`;
 }
 
 /* ── Init ────────────────────────────────────────────────────────────── */
