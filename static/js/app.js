@@ -420,6 +420,10 @@ async function loadResults() {
           </h2>
           <div id="${colId}" class="accordion-collapse collapse ${isOpen ? 'show' : ''}" data-bs-parent="#results-accordion">
             <div class="accordion-body" style="padding:.75rem;">
+              ${rid ? `<div class="d-flex justify-content-end gap-2 mb-2">
+                <button class="btn btn-sm btn-outline-secondary" title="Export CSV (aceasta rulare)" onclick="exportRun(${rid}, 'csv')"><i class="bi bi-filetype-csv me-1"></i>CSV</button>
+                <button class="btn btn-sm btn-outline-secondary" title="Export JSON (aceasta rulare)" onclick="exportRun(${rid}, 'json')"><i class="bi bi-filetype-json me-1"></i>JSON</button>
+              </div>` : ''}
               ${body}
             </div>
           </div>
