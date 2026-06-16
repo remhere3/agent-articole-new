@@ -1,6 +1,7 @@
 import logging
 import time
 from contextlib import asynccontextmanager
+from datetime import timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Depends
@@ -106,8 +107,19 @@ async def status(db: Session = Depends(get_db)):
     active_topics = db.query(models.Topic).filter(models.Topic.active == True).count()  # noqa: E712
     total_results = db.query(models.SearchResult).count()
     last_run = db.query(models.SearchRun).order_by(models.SearchRun.id.desc()).first()
+
+    # started_at e stocat naiv UTC (server_default=func.now() -> CURRENT_TIMESTAMP).
+    # Il marcam explicit ca UTC, altfel JS-ul din footer il interpreteaza ca ora
+    # locala si afiseaza ora gresita pentru Europe/Bucharest.
+    last_run_at = None
+    if last_run and last_run.started_at:
+        dt = last_run.started_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        last_run_at = dt.isoformat()
+
     return {
-        "version": "1.0.0",
+        "version": app_settings.version,
         "anthropic_model": app_settings.anthropic_model,
         "anthropic_configured": bool(app_settings.anthropic_api_key),
         "tavily_configured": bool(app_settings.tavily_api_key),
@@ -117,6 +129,6 @@ async def status(db: Session = Depends(get_db)):
         "smtp_configured": bool(app_settings.smtp_user),
         "active_topics": active_topics,
         "total_results": total_results,
-        "last_run_at": last_run.started_at.isoformat() if last_run else None,
+        "last_run_at": last_run_at,
         "last_run_status": last_run.status if last_run else None,
     }
