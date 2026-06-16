@@ -87,12 +87,12 @@ async def stream_logs(request: Request):
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse(request, "index.html", {"version": app_settings.version})
 
 
 @app.get("/documentation", response_class=HTMLResponse, include_in_schema=False)
 async def documentation(request: Request):
-    return templates.TemplateResponse(request, "documentation.html")
+    return templates.TemplateResponse(request, "documentation.html", {"version": app_settings.version})
 
 
 @app.get("/health")

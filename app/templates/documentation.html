@@ -130,7 +130,7 @@ body {
 <!-- ── SIDEBAR ── -->
 <aside class="docs-sidebar">
   <div class="docs-sidebar-header">
-    <h1><i class="bi bi-journal-text me-1"></i>Agent Articole</h1>
+    <h1><i class="bi bi-journal-text me-1"></i>Agent Articole <span style="font-size:.6em;font-weight:400;opacity:.7;">v{{ version }}</span></h1>
     <p>Documentatie API si ghid de utilizare</p>
   </div>
   <nav class="d-toc" id="docs-toc">
@@ -718,15 +718,15 @@ body {
         </p>
         <p style="margin:.45rem 0 0;font-size:.84rem;">
           In plus, <strong>diacriticele romanesti</strong> (<code>ș î ă ț â</code>) fac numele fragile pe web:
-          multe indexuri stocheaza forma <em>fara</em> diacritice (ex. <code>Ștefanescu</code> este indexat
-          frecvent ca <code>Stefanescu</code>), iar unele surse pastreaza forma cu diacritice. De aceea
+          multe indexuri stocheaza forma <em>fara</em> diacritice (ex. <code>Șofîlcă</code> este indexat
+          frecvent ca <code>Sofilca</code>), iar unele surse pastreaza forma cu diacritice. De aceea
           promptul cere modelului sa incerce <strong>variante de nume</strong>: cu si fara diacritice,
           ordine diferita (<em>Prenume Nume</em> / <em>Nume Prenume</em>) si forma cu initiala
-          (<code>N. Stefanescu</code>). Astfel acoperirea creste, dar — fiind tot cautare web — ramane partiala
+          (<code>N. Sofilca</code>). Astfel acoperirea creste, dar — fiind tot cautare web — ramane partiala
           fata de <code>author</code>.
         </p>
         <p style="margin:.45rem 0 0;font-size:.84rem;">
-          <strong>Exemplu real</strong> (topic "articole Nicolae Georgescu", <code>days_back=3650</code>):
+          <strong>Exemplu real</strong> (topic "articole Nicolae Șofîlcă", <code>days_back=3650</code>):
           <code>author</code> → <strong>12 articole</strong>; <code>anthropic</code> → <strong>5</strong> (toate
           un subset al celor 12; intr-o alta rulare 4, set partial diferit, incluzand 2 publicatii locale / de
           conferinta care nu apar in OpenAlex/CrossRef). Filtrarea pe data <strong>nu</strong> este cauza —
@@ -1928,7 +1928,7 @@ sudo systemctl stop agent-articole         # oprire</pre>
 </section>
 
 <div class="d-footer">
-  Agent Articole v1.0.0 &mdash;
+  Agent Articole v{{ version }} &mdash;
   <a href="/docs" style="color:#0044aa">Swagger API</a> &mdash;
   <a href="/" style="color:#0044aa">Interfata</a>
 </div>

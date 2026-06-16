@@ -5,6 +5,8 @@ from typing import Optional
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    version: str = "1.2"
+
     anthropic_api_key: Optional[str] = None
     anthropic_model: str = "claude-sonnet-4-6"
 
