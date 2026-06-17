@@ -30,7 +30,7 @@ semanticscholar.org
 scopus.com
 webofscience.com
 scholar.google.com
-
+scientificbulletin.upb.ro
 # ── Edituri mari ─────────────────────────────────────────────────────────
 nature.com
 science.org
