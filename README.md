@@ -196,15 +196,25 @@ Vezi `docs/api_examples.md` sau Swagger la `http://localhost:8007/docs`.
 | Variabila | Descriere | Default |
 |-----------|-----------|---------|
 | `ANTHROPIC_API_KEY` | Cheie API Anthropic | — |
-| `ANTHROPIC_MODEL` | Modelul Claude | `claude-sonnet-4-6` |
+| `ANTHROPIC_MODEL` | Modelul Claude (pretul costului se ia automat dupa model) | `claude-opus-4-8` |
 | `TAVILY_API_KEY` | Cheie API Tavily | — |
-| `OLLAMA_BASE_URL` | URL Ollama local | `http://localhost:11434` |
+| `SEARXNG_BASE_URL` | URL server SearXNG self-hosted (necesar pt. provider `searxng`) | `http://localhost:8080` |
+| `SEARXNG_MAX_ARTICLES` | Cate articole trimite `searxng` la Ollama (cap per rulare) | `25` |
+| `AUTHOR_MAX_WORKS` | Provider `author`: lucrari/profil (OpenAlex + CrossRef, paginate cu cursor) | `200` |
+| `AUTHOR_MAX_PROFILES` | Provider `author`: cate profiluri de autor potrivite se proceseaza | `3` |
+| `OLLAMA_BASE_URL` | URL Ollama local (folosit de `searxng` pt. rezumare) | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Modelul Ollama | `llama3.2` |
 | `OLLAMA_API_KEY` | API key Ollama Cloud; gol = local | — |
-| `SEARXNG_BASE_URL` | URL server SearXNG self-hosted | — |
 | `SMTP_HOST` | Server SMTP | `smtp.gmail.com` |
 | `SMTP_PORT` | Port SMTP | `587` |
 | `SMTP_USER` | User SMTP | — |
 | `SMTP_PASSWORD` | Parola SMTP | — |
+| `EMAIL_FROM` | Expeditor afisat in email | `Agent Articole <noreply@example.com>` |
+| `APP_SECRET_KEY` | Cheie secreta aplicatie (schimba in productie!) | `dev-secret-change-in-production` |
+| `APP_PORT` | Portul serverului | `8007` |
+| `VERSION` | Versiunea afisata in UI/documentatie | `1.2` |
 | `DATABASE_URL` | URL baza de date | `sqlite:///./agent_articole.db` |
 | `DEBUG` | Mod debug | `false` |
+| `NTFY_ENABLED` | Notificari push ntfy per rulare | `false` |
+| `NTFY_BASE_URL` | Server ntfy (`https://ntfy.sh` sau local) | `https://ntfy.sh` |
+| `NTFY_TOPIC` | Topicul ntfy pentru notificari | — |
