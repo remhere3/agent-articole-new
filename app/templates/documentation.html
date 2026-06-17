@@ -1790,7 +1790,7 @@ Provider: anthropic · Run #37</div>
         <tr><td><code>OLLAMA_API_KEY</code></td><td>—</td><td>API key pentru Ollama Cloud; gol = local</td></tr>
         <tr><td><code>SEARXNG_BASE_URL</code></td><td>—</td><td>URL server SearXNG self-hosted, ex: <code>http://10.10.28.21:8181</code> (necesar pentru providerul <code>searxng</code>)</td></tr>
         <tr><td><code>SEARXNG_MAX_ARTICLES</code></td><td>25</td><td>Cate articole trimite <code>searxng</code> la Ollama pentru rezumare (cap per rulare; mai mult = prompt mai lung, risc timeout)</td></tr>
-        <tr><td><code>AUTHOR_MAX_WORKS</code></td><td>200</td><td>Provider <code>author</code>: lucrari/profil din OpenAlex (max 200) + <code>rows</code> CrossRef (max 1000)</td></tr>
+        <tr><td><code>AUTHOR_MAX_WORKS</code></td><td>200</td><td>Provider <code>author</code>: lucrari/profil — OpenAlex paginat cu cursor (poate depasi 200, 200/pagina) + <code>rows</code> CrossRef (max 1000)</td></tr>
         <tr><td><code>AUTHOR_MAX_PROFILES</code></td><td>3</td><td>Provider <code>author</code>: cate profiluri de autor potrivite se proceseaza (numele cu diacritice pot avea profiluri OpenAlex separate)</td></tr>
         <tr><td><code>SMTP_HOST</code></td><td>smtp.gmail.com</td><td>Server SMTP</td></tr>
         <tr><td><code>SMTP_PORT</code></td><td>587</td><td>Port SMTP</td></tr>

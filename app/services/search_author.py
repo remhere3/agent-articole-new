@@ -93,25 +93,42 @@ async def _search_openalex(
         author_id = author.get("id", "").split("/")[-1]  # ex: A123456789
         if not author_id:
             continue
-        try:
-            r = await client.get(
-                f"{OA_BASE}/works",
-                params={
-                    "filter": f"authorships.author.id:{author_id},from_publication_date:{from_date}",
-                    "per-page": min(max_works, 200),  # OpenAlex permite max 200/pagina
-                    "sort": "publication_date:desc",
-                    "select": "id,title,authorships,publication_date,doi,open_access,ids,primary_location,abstract_inverted_index",
-                },
-                headers={"User-Agent": USER_AGENT},
-            )
-            if r.status_code != 200:
-                logger.warning(f"[Author/OA] Works HTTP {r.status_code}: {r.text[:200]}")
-                continue
-            works = r.json().get("results", [])
-            logger.info(f"[Author/OA] '{author.get('display_name')}': {len(works)} lucrari recente")
-        except Exception as e:
-            logger.warning(f"[Author/OA] Works error: {e}")
-            continue
+        # Paginare cu cursor: OpenAlex livreaza max 200/pagina, deci pentru
+        # max_works > 200 parcurgem mai multe pagini pana epuizam rezultatele
+        # sau atingem max_works. Cursor-ul incepe la "*"; next_cursor=null -> gata.
+        per_page = min(max_works, 200)
+        cursor: Optional[str] = "*"
+        works: List[Dict[str, Any]] = []
+        pages = 0
+        while cursor and len(works) < max_works:
+            try:
+                r = await client.get(
+                    f"{OA_BASE}/works",
+                    params={
+                        "filter": f"authorships.author.id:{author_id},from_publication_date:{from_date}",
+                        "per-page": per_page,
+                        "cursor": cursor,
+                        "sort": "publication_date:desc",
+                        "select": "id,title,authorships,publication_date,doi,open_access,ids,primary_location,abstract_inverted_index",
+                    },
+                    headers={"User-Agent": USER_AGENT},
+                )
+                if r.status_code != 200:
+                    logger.warning(f"[Author/OA] Works HTTP {r.status_code}: {r.text[:200]}")
+                    break
+                data = r.json()
+                page_results = data.get("results", [])
+                works.extend(page_results)
+                cursor = (data.get("meta") or {}).get("next_cursor")
+                pages += 1
+                if not page_results:
+                    break
+            except Exception as e:
+                logger.warning(f"[Author/OA] Works error: {e}")
+                break
+
+        works = works[:max_works]
+        logger.info(f"[Author/OA] '{author.get('display_name')}': {len(works)} lucrari recente ({pages} pagini)")
 
         for work in works:
             title = (work.get("title") or "").strip()
