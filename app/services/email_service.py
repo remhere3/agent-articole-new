@@ -58,7 +58,7 @@ def _build_html_report(
     found_total = t.get("found_total", len(articles))
     excluded    = t.get("excluded", 0)
 
-    provider_color = {"anthropic": "#0044aa", "tavily": "#c45c00", "ollama": "#1a6b4a"}.get(provider, "#555")
+    provider_color = {"anthropic": "#0044aa", "tavily": "#c45c00", "searxng": "#7c3aed", "author": "#00897b"}.get(provider, "#555")
 
     cost_usd = t.get("estimated_cost_usd")
     cost_row = ""

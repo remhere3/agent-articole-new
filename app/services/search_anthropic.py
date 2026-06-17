@@ -107,7 +107,7 @@ async def search_articles(
     keywords: str,
     days_back: int,
     api_key: str,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-opus-4-8",
     user_question: Optional[str] = None,
     telemetry: Optional[dict] = None,
 ) -> List[Dict[str, Any]]:

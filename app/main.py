@@ -47,8 +47,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Agent Articole",
-    description="Agent de cautare articole stiintifice cu Anthropic, Tavily si Ollama",
-    version="1.0.0",
+    description="Agent de cautare articole stiintifice (Anthropic, Tavily, SearXNG+Ollama, Author)",
+    version=app_settings.version,
     lifespan=lifespan,
 )
 
@@ -98,7 +98,7 @@ async def documentation(request: Request):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "ok", "version": app_settings.version}
 
 
 @app.get("/api/status")

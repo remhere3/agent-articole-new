@@ -46,7 +46,7 @@ curl -s http://localhost:8007/health
 ```python
 import httpx
 r = httpx.get("http://localhost:8007/health")
-print(r.json())  # {"status": "ok", "version": "1.0.0"}
+print(r.json())  # {"status": "ok", "version": "1.2"}
 ```
 
 ---
@@ -157,7 +157,7 @@ for t in r.json():
 | `days_back` | int | Articole din ultimele N zile (1–365) | 7 |
 | `periodicity_hours` | float | Ruleaza la fiecare N ore (min 0.5) | 24 |
 | `timeout_seconds` | int | Timeout maxim pentru o cautare (30–3600) | 300 |
-| `provider` | string | `anthropic` / `tavily` / `ollama` / `searxng` / `author` | `anthropic` |
+| `provider` | string | `anthropic` / `tavily` / `searxng` / `author` | `anthropic` |
 | `active` | bool | Ruleaza automat | true |
 | `send_email` | bool | Trimite email dupa cautare | true |
 | `user_ids` | list[int] | Utilizatori abonati | [] |
@@ -504,14 +504,14 @@ curl -s http://localhost:8007/api/searches/validate-provider/anthropic | python3
 # Valideaza Tavily
 curl -s http://localhost:8007/api/searches/validate-provider/tavily | python3 -m json.tool
 
-# Valideaza Ollama (local)
-curl -s http://localhost:8007/api/searches/validate-provider/ollama | python3 -m json.tool
-
 # Valideaza SearXNG (self-hosted)
 curl -s http://localhost:8007/api/searches/validate-provider/searxng | python3 -m json.tool
+
+# Valideaza Author (OpenAlex + CrossRef)
+curl -s http://localhost:8007/api/searches/validate-provider/author | python3 -m json.tool
 ```
 ```python
-for provider in ["anthropic", "tavily", "ollama", "searxng", "author"]:
+for provider in ["anthropic", "tavily", "searxng", "author"]:
     r = httpx.get(f"http://localhost:8007/api/searches/validate-provider/{provider}",
                   timeout=10.0)
     result = r.json()
@@ -519,13 +519,13 @@ for provider in ["anthropic", "tavily", "ollama", "searxng", "author"]:
     print(f"{status} {provider}: {result['message']}")
 
 # Exemplu raspuns (cheia valida):
-# {"ok": true, "message": "Anthropic OK — model claude-sonnet-4-6 accesibil"}
+# {"ok": true, "message": "Anthropic OK — model claude-opus-4-8 accesibil"}
 
 # Exemplu raspuns (cheia invalida):
 # {"ok": false, "message": "Anthropic error: authentication_error — invalid x-api-key"}
 ```
 
-Provideri acceptati: `anthropic`, `tavily`, `ollama`, `searxng`, `author`
+Provideri acceptati: `anthropic`, `tavily`, `searxng`, `author`
 
 ---
 
@@ -593,7 +593,7 @@ Toate erorile returneaza JSON cu campul `detail`:
 {"detail": "Topic not found"}
 {"detail": "Email already registered"}
 {"detail": "ANTHROPIC_API_KEY not configured"}
-{"detail": "provider must be one of {'anthropic', 'tavily', 'ollama', 'searxng', 'author'}"}
+{"detail": "provider must be one of {'anthropic', 'tavily', 'searxng', 'author'}"}
 {"detail": "Cooldown activ. Mai asteapta 45s."}
 ```
 

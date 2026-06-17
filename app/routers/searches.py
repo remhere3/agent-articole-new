@@ -198,7 +198,7 @@ def _build_telemetry(topic: models.Topic, articles: list, elapsed_s: float) -> d
     """Construieste dict cu telemetrie pentru raportul email."""
     if topic.provider == "anthropic":
         model = settings.anthropic_model
-        web_search = f"web_search_20250305 (max 5 apeluri) · {model}"
+        web_search = f"web_search_20250305 (max 12 apeluri) · {model}"
     elif topic.provider == "tavily":
         model = "—"
         web_search = "Tavily API (academic + general, 2 treceri)"
