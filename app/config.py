@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     searxng_max_articles: int = 25  # cate articole trimite SearXNG la Ollama pentru rezumare
 
     # Provider author (OpenAlex + CrossRef)
-    author_max_works: int = 200      # lucrari/profil: OpenAlex (paginat cu cursor, poate depasi 200) + rows CrossRef (max 1000)
+    author_max_works: int = 200      # lucrari/profil: OpenAlex + CrossRef, ambele paginate cu cursor (poate depasi 200/1000)
     author_max_profiles: int = 3     # cate profiluri de autor potrivite se proceseaza (diacritice -> profiluri separate)
 
     smtp_host: str = "smtp.gmail.com"

@@ -194,27 +194,44 @@ async def _search_crossref(
     client: httpx.AsyncClient,
     max_works: int = 200,
 ) -> List[Dict[str, Any]]:
-    try:
-        r = await client.get(
-            f"{CR_BASE}/works",
-            params={
-                "query.author": author_name,
-                "rows": min(max_works, 1000),  # CrossRef permite max 1000/pagina
-                "sort": "published",
-                "order": "desc",
-                "filter": f"from-pub-date:{cutoff.strftime('%Y-%m-%d')}",
-                "select": "DOI,title,author,published,published-print,published-online,abstract,container-title,URL",
-            },
-            headers={"User-Agent": USER_AGENT},
-        )
-        if r.status_code != 200:
-            logger.warning(f"[Author/CR] HTTP {r.status_code}")
-            return []
-        items = r.json().get("message", {}).get("items", [])
-        logger.info(f"[Author/CR] {len(items)} rezultate brute")
-    except Exception as e:
-        logger.warning(f"[Author/CR] Search error: {e}")
-        return []
+    # Paginare cu cursor: CrossRef livreaza max 1000/pagina; pentru max_works mai
+    # mare parcurgem mai multe pagini (cursor "*" -> message.next-cursor; ne oprim
+    # cand pagina vine goala sau am atins max_works).
+    rows = min(max_works, 1000)
+    cursor: Optional[str] = "*"
+    items: List[Dict[str, Any]] = []
+    pages = 0
+    while cursor and len(items) < max_works:
+        try:
+            r = await client.get(
+                f"{CR_BASE}/works",
+                params={
+                    "query.author": author_name,
+                    "rows": rows,
+                    "cursor": cursor,
+                    "sort": "published",
+                    "order": "desc",
+                    "filter": f"from-pub-date:{cutoff.strftime('%Y-%m-%d')}",
+                    "select": "DOI,title,author,published,published-print,published-online,abstract,container-title,URL",
+                },
+                headers={"User-Agent": USER_AGENT},
+            )
+            if r.status_code != 200:
+                logger.warning(f"[Author/CR] HTTP {r.status_code}")
+                break
+            msg = r.json().get("message", {})
+            page_items = msg.get("items", [])
+            items.extend(page_items)
+            cursor = msg.get("next-cursor")
+            pages += 1
+            if not page_items:
+                break
+        except Exception as e:
+            logger.warning(f"[Author/CR] Search error: {e}")
+            break
+
+    items = items[:max_works]
+    logger.info(f"[Author/CR] {len(items)} rezultate brute ({pages} pagini)")
 
     results = []
     for item in items:
