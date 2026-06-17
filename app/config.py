@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     version: str = "1.2"
 
     anthropic_api_key: Optional[str] = None
-    anthropic_model: str = "claude-sonnet-4-6"
+    anthropic_model: str = "claude-opus-4-8"
 
     tavily_api_key: Optional[str] = None
     semantic_scholar_api_key: Optional[str] = None
