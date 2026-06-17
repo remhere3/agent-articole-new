@@ -238,7 +238,7 @@ body {
 
       <!-- ═══ FASTAPI ROUTERS ═══ -->
       <rect x="40" y="138" width="1320" height="60" rx="8" fill="#134e4a" stroke="#14b8a6" stroke-width="2" filter="url(#sh)"/>
-      <text x="700" y="158" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">FastAPI  ·  port 8007  ·  APScheduler (check 15 min)</text>
+      <text x="700" y="158" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">FastAPI  ·  port 8002  ·  APScheduler (check 15 min)</text>
       <text x="700" y="175" text-anchor="middle" fill="#99f6e4" font-size="10">Routers:  /api/users  ·  /api/topics  ·  /api/searches  ·  /api/logs/stream (SSE)  ·  /documentation</text>
       <text x="700" y="189" text-anchor="middle" fill="#4ade80" font-size="9">SQLAlchemy ORM  ·  Pydantic v2  ·  aiosmtplib  ·  Uvicorn ASGI</text>
 
@@ -589,7 +589,7 @@ body {
       <li>Copiaza si completeaza configuratia:<br>
         <code>cp .env.example .env</code> — pune cel putin <code>ANTHROPIC_API_KEY</code> sau <code>TAVILY_API_KEY</code></li>
       <li>Porneste serverul:<br><code>python run.py</code></li>
-      <li>Deschide browser la <code>http://localhost:8007</code></li>
+      <li>Deschide browser la <code>http://localhost:8002</code></li>
       <li>Adauga un utilizator → creeaza un topic → apasa <i class="bi bi-play-fill"></i> pentru prima cautare</li>
     </ol>
   </div>
@@ -1093,7 +1093,7 @@ TOPICS = [
     <div id="tab-users-curl" class="d-code-tabs">
       <div class="d-code-block">
         <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre>BASE=http://localhost:8007/api
+        <pre>BASE=http://localhost:8002/api
 
 # Lista utilizatori
 curl -s $BASE/users | python3 -m json.tool
@@ -1116,7 +1116,7 @@ curl -s -X DELETE $BASE/users/1</pre>
       <div class="d-code-block">
         <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
         <pre>import httpx
-BASE = "http://localhost:8007/api"
+BASE = "http://localhost:8002/api"
 
 # Lista
 r = httpx.get(f"{BASE}/users")
@@ -1178,7 +1178,7 @@ httpx.delete(f"{BASE}/users/1")</pre>
     <div id="tab-topics-curl" class="d-code-tabs">
       <div class="d-code-block">
         <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre>BASE=http://localhost:8007/api
+        <pre>BASE=http://localhost:8002/api
 
 # Creeaza topic cu intrebare libera (recomandat)
 curl -s -X POST $BASE/topics \
@@ -1223,7 +1223,7 @@ curl -s -X DELETE $BASE/topics/1</pre>
       <div class="d-code-block">
         <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
         <pre>import httpx
-BASE = "http://localhost:8007/api"
+BASE = "http://localhost:8002/api"
 
 # Creeaza topic cu intrebare libera
 topic = httpx.post(f"{BASE}/topics", json={
@@ -1286,7 +1286,7 @@ httpx.post(f"{BASE}/topics/1/users/2")</pre>
     <div id="tab-search-curl" class="d-code-tabs">
       <div class="d-code-block">
         <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre>BASE=http://localhost:8007/api
+        <pre>BASE=http://localhost:8002/api
 
 # Declanseaza manual (asteapta pana termina)
 curl -s -X POST $BASE/searches/run/1 | python3 -m json.tool
@@ -1316,7 +1316,7 @@ curl -s -X DELETE $BASE/searches/runs \
       <div class="d-code-block">
         <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
         <pre>import httpx
-BASE = "http://localhost:8007/api"
+BASE = "http://localhost:8002/api"
 
 # Ruleaza cautarea (timeout mare — Anthropic poate dura 30s+)
 run = httpx.post(f"{BASE}/searches/run/1", timeout=120).json()
@@ -1579,7 +1579,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
     <div id="tab-e2e-curl" class="d-code-tabs">
       <div class="d-code-block">
         <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre>BASE=http://localhost:8007/api
+        <pre>BASE=http://localhost:8002/api
 
 # 1. Configurare
 curl -s -X PUT $BASE/settings/anthropic_api_key \
@@ -1627,7 +1627,7 @@ curl -s -X POST $BASE/searches/run/$AUTHOR_TOPIC_ID | python3 -m json.tool</pre>
         <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
         <pre>import httpx
 
-BASE = "http://localhost:8007/api"
+BASE = "http://localhost:8002/api"
 c = httpx.Client(timeout=120)
 
 def api(method, path, **kw):
@@ -1822,7 +1822,7 @@ Provider: anthropic · Run #37</div>
         <tr><td><code>EMAIL_FROM</code></td><td>Agent Articole &lt;...&gt;</td><td>Expeditor afisat</td></tr>
         <tr><td><code>DATABASE_URL</code></td><td>sqlite:///./agent_articole.db</td><td>URL baza de date</td></tr>
         <tr><td><code>DEBUG</code></td><td>false</td><td>Reload automat la modificari</td></tr>
-        <tr><td><code>APP_PORT</code></td><td>8007</td><td>Portul pe care ruleaza serverul</td></tr>
+        <tr><td><code>APP_PORT</code></td><td>8002</td><td>Portul pe care ruleaza serverul</td></tr>
         <tr><td><code>NTFY_ENABLED</code></td><td>false</td><td>Activeaza/dezactiveaza notificarile ntfy (<code>true</code> / <code>false</code>)</td></tr>
         <tr><td><code>NTFY_TOPIC</code></td><td>—</td><td>Numele topicului ntfy, ex: <code>agent-articole-abc123</code></td></tr>
         <tr><td><code>NTFY_BASE_URL</code></td><td>https://ntfy.sh</td><td>Server ntfy: <code>https://ntfy.sh</code> (cloud) sau <code>http://localhost:8080</code> (local Docker)</td></tr>
@@ -1856,7 +1856,7 @@ After=network.target
 Type=exec
 User=ubuntu
 WorkingDirectory=/home/ubuntu/claude/agent_articole
-ExecStart=/home/ubuntu/claude/agent_articole/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8007 --log-level info
+ExecStart=/home/ubuntu/claude/agent_articole/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8002 --log-level info
 Restart=on-failure
 RestartSec=5
 
