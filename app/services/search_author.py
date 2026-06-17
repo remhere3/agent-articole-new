@@ -22,6 +22,29 @@ CR_BASE = "https://api.crossref.org"
 USER_AGENT = "AgentArticole/1.0 (mailto:agent@icsi.ro)"
 
 
+# Cuvinte-zgomot uzuale in numele topicurilor (ex. "articole stiintifice X").
+# Pentru providerul author trebuie scoase, altfel polueaza cautarea dupa autor:
+# OpenAlex nu gaseste autorul, iar _name_matches cere ca toate cuvintele sa apara.
+_AUTHOR_QUERY_NOISE = {
+    "articol", "articole", "articolele", "articles", "article", "paper", "papers",
+    "stiintific", "stiintifice", "științific", "științifice", "scientific",
+    "lucrari", "lucrarile", "lucrări", "lucrările", "publicatii", "publicații",
+    "publicatiile", "despre", "de", "ale", "lui",
+}
+
+
+def _clean_author_name(raw: str) -> str:
+    """Scoate cuvintele-zgomot dintr-un query de autor, pastrand numele propriu.
+
+    Ex. "articole stiintifice Simona Răboacă" -> "Simona Răboacă".
+    Daca nu ramane nimic (query format doar din zgomot), intoarce textul brut.
+    """
+    tokens = (raw or "").split()
+    kept = [t for t in tokens if t.lower().strip(".,;:") not in _AUTHOR_QUERY_NOISE]
+    cleaned = " ".join(kept).strip()
+    return cleaned or (raw or "").strip()
+
+
 def _name_matches(search_name: str, candidate_name: str) -> bool:
     parts = search_name.lower().split()
     candidate = candidate_name.lower()
@@ -296,7 +319,11 @@ async def search_articles(
     Cauta articolele unui autor via OpenAlex + CrossRef in paralel.
     Fara API key, fara rate limit problematic.
     """
+    raw_name = author_name
+    author_name = _clean_author_name(author_name)
     cutoff = datetime.now() - timedelta(days=days_back)
+    if author_name != raw_name:
+        logger.info(f"[Author] nume curatat: '{raw_name}' -> '{author_name}'")
     logger.info(f"[Author] '{author_name}' | cutoff={cutoff.date()} | OpenAlex + CrossRef")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
