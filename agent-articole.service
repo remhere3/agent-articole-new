@@ -9,7 +9,7 @@ After=network.target
 Type=exec
 User=ubuntu
 WorkingDirectory=/home/ubuntu/claude/agent_articole
-ExecStart=/home/ubuntu/claude/agent_articole/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8007 --log-level info
+ExecStart=/home/ubuntu/claude/agent_articole/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8002 --log-level info
 Restart=on-failure
 RestartSec=5                                                                                                                                    
                   

@@ -35,7 +35,7 @@ nano .env   # seteaza ANTHROPIC_API_KEY si/sau TAVILY_API_KEY
 python run.py
 ```
 
-Deschide browser la: **http://localhost:8007**
+Deschide browser la: **http://localhost:8002**
 
 ## Structura proiect
 
@@ -156,7 +156,7 @@ After=network.target
 Type=exec
 User=ubuntu
 WorkingDirectory=/home/ubuntu/claude/agent_articole
-ExecStart=/home/ubuntu/claude/agent_articole/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8007 --log-level info
+ExecStart=/home/ubuntu/claude/agent_articole/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8002 --log-level info
 Restart=on-failure
 RestartSec=5
 
@@ -189,7 +189,7 @@ sudo journalctl -u agent-articole -f    # log-uri live
 
 ## Documentatie API
 
-Vezi `docs/api_examples.md` sau Swagger la `http://localhost:8007/docs`.
+Vezi `docs/api_examples.md` sau Swagger la `http://localhost:8002/docs`.
 
 ## Variabile de mediu
 
@@ -211,7 +211,7 @@ Vezi `docs/api_examples.md` sau Swagger la `http://localhost:8007/docs`.
 | `SMTP_PASSWORD` | Parola SMTP | — |
 | `EMAIL_FROM` | Expeditor afisat in email | `Agent Articole <noreply@example.com>` |
 | `APP_SECRET_KEY` | Cheie secreta aplicatie (schimba in productie!) | `dev-secret-change-in-production` |
-| `APP_PORT` | Portul serverului | `8007` |
+| `APP_PORT` | Portul serverului | `8002` |
 | `VERSION` | Versiunea afisata in UI/documentatie | `1.2` |
 | `DATABASE_URL` | URL baza de date | `sqlite:///./agent_articole.db` |
 | `DEBUG` | Mod debug | `false` |

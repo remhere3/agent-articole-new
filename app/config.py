@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     app_secret_key: str = "dev-secret-change-in-production"
     database_url: str = "sqlite:///./agent_articole.db"
     debug: bool = False
-    app_port: int = 8007
+    app_port: int = 8002
 
     ntfy_enabled: bool = False
     ntfy_base_url: str = "https://ntfy.sh"   # ntfy.sh sau http://localhost:8080 pentru local
