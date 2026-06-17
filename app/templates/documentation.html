@@ -759,7 +759,7 @@ body {
 
       <!-- Tabel comparatie completa -->
       <div style="margin-top:.25rem;">
-        <p style="font-size:.84rem;margin-bottom:.5rem;"><strong>Comparatie completa cei 5 provideri:</strong></p>
+        <p style="font-size:.84rem;margin-bottom:.5rem;"><strong>Comparatie completa cei 4 provideri:</strong></p>
         <table class="d-table">
           <thead>
             <tr>
@@ -769,9 +769,6 @@ body {
               </th>
               <th style="background:#78350f;color:#fde68a;font-size:.8rem;letter-spacing:.06em;text-align:center;">
                 <i class="bi bi-search me-1"></i>TAVILY
-              </th>
-              <th style="background:#14532d;color:#86efac;font-size:.8rem;letter-spacing:.06em;text-align:center;">
-                <i class="bi bi-cpu me-1"></i>OLLAMA
               </th>
               <th style="background:#2d1b4e;color:#ddd6fe;font-size:.8rem;letter-spacing:.06em;text-align:center;">
                 <i class="bi bi-search me-1"></i>SEARXNG
@@ -786,7 +783,6 @@ body {
               <td><strong>Sursa date</strong></td>
               <td>Web general (via <code>web_search_20250305</code> nativ, max 5 apeluri)</td>
               <td>Tavily API</td>
-              <td>Tavily API <em>(identic cu tavily)</em></td>
               <td>SearXNG API (self-hosted, retea locala)</td>
               <td>OpenAlex API + CrossRef API (baze de date academice structurate)</td>
             </tr>
@@ -795,14 +791,12 @@ body {
               <td>Claude — sintetizeaza, extrage, scrie summary-uri</td>
               <td>Python direct — extrage titlu, URL, data, primele 600 chars din snippet</td>
               <td>Ollama local — rescrie summary-urile cu LLM</td>
-              <td>Ollama local — rescrie summary-urile cu LLM</td>
               <td>Python direct — abstractele vin direct din baza de date</td>
             </tr>
             <tr>
               <td><strong>LLM implicat</strong></td>
               <td>Da — Claude Sonnet (cloud)</td>
               <td>Nu</td>
-              <td>Da — llama3, gemma4, mistral etc. (local / cloud)</td>
               <td>Da — llama3, gemma4, mistral etc. (local)</td>
               <td>Nu</td>
             </tr>
@@ -810,7 +804,6 @@ body {
               <td><strong>Controlul surselor</strong></td>
               <td>Sugestie in prompt <em>(negarantat)</em></td>
               <td>Lista exacta <code>ACADEMIC_DOMAINS</code></td>
-              <td>Lista exacta <code>ACADEMIC_DOMAINS</code> (prin Tavily)</td>
               <td>Motoarele configurate in SearXNG</td>
               <td>Filtrare exacta dupa <code>authorships.author.id</code> in OpenAlex + verificare lista autori in CrossRef</td>
             </tr>
@@ -819,7 +812,6 @@ body {
               <td>5–15 articole</td>
               <td>15–30+ articole</td>
               <td>10–25 articole</td>
-              <td>10–25 articole</td>
               <td>Toate lucrarile autorului din fereastra <code>days_back</code> (poate fi 0 daca autorul nu e in OpenAlex)</td>
             </tr>
             <tr>
@@ -827,14 +819,12 @@ body {
               <td>Foarte buna — Claude scrie in limbaj natural coerent</td>
               <td>Snippet brut, nereformat</td>
               <td>Buna — LLM local rescrie</td>
-              <td>Buna — LLM local rescrie</td>
               <td>Abstract complet din baza de date (acolo unde exista)</td>
             </tr>
             <tr>
               <td><strong>Cost / run</strong></td>
               <td>~$0.01–0.05 (tokens Anthropic)</td>
               <td>~$0.001 (doar Tavily)</td>
-              <td>~$0.001 (Tavily) + CPU/GPU local</td>
               <td>0 (self-hosted)</td>
               <td>0 (API-uri publice gratuite)</td>
             </tr>
@@ -843,14 +833,12 @@ body {
               <td>15–90s</td>
               <td>5–15s</td>
               <td>15–60s</td>
-              <td>15–60s</td>
               <td>3–8s</td>
             </tr>
             <tr>
               <td><strong>Necesita</strong></td>
               <td><code>ANTHROPIC_API_KEY</code></td>
               <td><code>TAVILY_API_KEY</code></td>
-              <td><code>TAVILY_API_KEY</code> + Ollama instalat</td>
               <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
               <td>Nimic — fara cheie API</td>
             </tr>
@@ -858,7 +846,6 @@ body {
               <td><strong>Cand il folosesti</strong></td>
               <td>Intrebari complexe, sinteza tematica, domenii nise</td>
               <td>Volum maxim, surse garantat academice, viteza, cost minim</td>
-              <td>Summary-uri mai bune decat Tavily raw, fara costuri Anthropic</td>
               <td>Self-hosted complet, fara costuri API externe</td>
               <td><strong>Monitorizare productie stiintifica a unui autor specific</strong> — articolele publicate de o persoana</td>
             </tr>
@@ -1497,7 +1484,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
         </tr>
         <tr>
           <td>12</td>
-          <td><strong>Stergere watermarks IEEE</strong> — <code>strip_watermarks()</code> (acum in <code>app/services/_utils.py</code>) aplicat pe summary-urile returnate de toti cei 5 provideri; elimina textul institutional <em>"Authorized licensed use limited to: ... Restrictions apply."</em></td>
+          <td><strong>Stergere watermarks IEEE</strong> — <code>strip_watermarks()</code> (acum in <code>app/services/_utils.py</code>) aplicat pe summary-urile returnate de toti cei 4 provideri; elimina textul institutional <em>"Authorized licensed use limited to: ... Restrictions apply."</em></td>
           <td>Summary-urile nu mai contin informatii de licentiere IEEE irelevante pentru continutul stiintific</td>
         </tr>
         <tr>
@@ -1517,7 +1504,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
         </tr>
         <tr>
           <td>16</td>
-          <td><strong>Modul utilitar comun</strong> — <code>app/services/_utils.py</code> consolideaza functiile care erau duplicate (copy-paste) in cei 5 provideri: <code>strip_watermarks</code>, <code>parse_date</code>, <code>domain</code>, <code>is_academic</code>, <code>ACADEMIC_DOMAINS</code>. <code>parse_date</code> unificat e superset (ISO-cu-ora + an-singur). Lista de domenii academice e externalizata in <code>config/academic_domains.txt</code> (editabila fara cod)</td>
+          <td><strong>Modul utilitar comun</strong> — <code>app/services/_utils.py</code> consolideaza functiile care erau duplicate (copy-paste) in cei 4 provideri: <code>strip_watermarks</code>, <code>parse_date</code>, <code>domain</code>, <code>is_academic</code>, <code>ACADEMIC_DOMAINS</code>. <code>parse_date</code> unificat e superset (ISO-cu-ora + an-singur). Lista de domenii academice e externalizata in <code>config/academic_domains.txt</code> (editabila fara cod)</td>
           <td>Un fix de regex sau o lista noua de domenii se face intr-un singur loc; comportament consistent intre provideri (inainte, cele 4 copii <code>parse_date</code> difereau)</td>
         </tr>
         <tr>
