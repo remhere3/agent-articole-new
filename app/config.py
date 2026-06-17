@@ -11,7 +11,6 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-opus-4-8"
 
     tavily_api_key: Optional[str] = None
-    semantic_scholar_api_key: Optional[str] = None
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"

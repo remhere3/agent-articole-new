@@ -323,7 +323,6 @@ async def _search_crossref(
 async def search_articles(
     author_name: str,
     days_back: int,
-    semantic_scholar_api_key: Optional[str] = None,  # pastrat pentru compatibilitate, neutilizat
     max_works: int = 200,
     max_profiles: int = 3,
     telemetry: Optional[dict] = None,
