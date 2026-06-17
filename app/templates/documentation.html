@@ -663,6 +663,28 @@ body {
         </p>
       </div>
 
+      <!-- Nota: cum rezolva 'author' numele cautat -->
+      <div style="background:rgba(0,137,123,.07);border:1px solid rgba(0,137,123,.25);border-left:3px solid #00897b;border-radius:.4rem;padding:.65rem .9rem;">
+        <strong style="color:#00695c;font-size:.84rem;"><i class="bi bi-person-check me-1"></i>Cum rezolva <code>author</code> numele cautat</strong>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          <strong>Curatare cuvinte-zgomot.</strong> Numele topicului poate contine cuvinte care nu fac parte din nume
+          (ex. <code>"articole stiintifice Simona Răboacă"</code>). Inainte de cautare acestea sunt eliminate
+          (<code>articole</code>, <code>stiintifice</code>, <code>lucrari</code> etc.), ramanand doar numele propriu
+          (<code>"Simona Răboacă"</code>) — altfel OpenAlex nu gaseste autorul, iar potrivirea esueaza.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>Insensibil la diacritice.</strong> Bazele de date stocheaza adesea numele fara diacritice
+          (<code>Răboacă</code> → <code>Raboaca</code>). Potrivirea de-diacritizeaza ambele parti
+          (<code>ă/â→a, î→i, ș→s, ț→t</code>), deci numele romanesti se potrivesc corect.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>CrossRef pe relevanta.</strong> Interogarea CrossRef foloseste relevanta (nu sortare dupa data),
+          ca lucrarile reale ale autorului sa apara primele; lista finala e re-sortata pe data dupa deduplicare.
+          Ambele surse (OpenAlex + CrossRef) sunt <strong>paginate cu cursor</strong> — vezi
+          <code>AUTHOR_MAX_WORKS</code> / <code>AUTHOR_MAX_PROFILES</code>.
+        </p>
+      </div>
+
       <!-- Nota: de ce anthropic si author dau rezultate diferite -->
       <div style="background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);border-left:3px solid #dc2626;border-radius:.4rem;padding:.65rem .9rem;">
         <strong style="color:#b91c1c;font-size:.84rem;"><i class="bi bi-exclamation-triangle me-1"></i>De ce <code>anthropic</code> si <code>author</code> dau numere diferite pentru acelasi topic</strong>
