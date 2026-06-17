@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     searxng_base_url: str = "http://localhost:8080"
     searxng_max_articles: int = 25  # cate articole trimite SearXNG la Ollama pentru rezumare
 
+    # Provider author (OpenAlex + CrossRef)
+    author_max_works: int = 200      # lucrari/profil din OpenAlex (max API 200) + rows CrossRef
+    author_max_profiles: int = 3     # cate profiluri de autor potrivite se proceseaza (diacritice -> profiluri separate)
+
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
     smtp_user: Optional[str] = None

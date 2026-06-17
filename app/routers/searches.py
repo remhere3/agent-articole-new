@@ -270,6 +270,8 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
             author_name=topic.keywords or topic.user_question,
             days_back=topic.days_back,
             semantic_scholar_api_key=settings.semantic_scholar_api_key or None,
+            max_works=settings.author_max_works,
+            max_profiles=settings.author_max_profiles,
             telemetry=telemetry,
         )
 

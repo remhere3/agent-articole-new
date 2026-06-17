@@ -48,6 +48,8 @@ async def _search_openalex(
     author_name: str,
     cutoff: datetime,
     client: httpx.AsyncClient,
+    max_works: int = 200,
+    max_profiles: int = 3,
 ) -> List[Dict[str, Any]]:
     """
     1. Cauta autorul in OpenAlex dupa nume → obtine author ID
@@ -87,7 +89,7 @@ async def _search_openalex(
     from_date = cutoff.strftime("%Y-%m-%d")
 
     # Pas 2: lucrarile fiecarui autor
-    for author in matched[:2]:
+    for author in matched[:max_profiles]:
         author_id = author.get("id", "").split("/")[-1]  # ex: A123456789
         if not author_id:
             continue
@@ -96,7 +98,7 @@ async def _search_openalex(
                 f"{OA_BASE}/works",
                 params={
                     "filter": f"authorships.author.id:{author_id},from_publication_date:{from_date}",
-                    "per-page": 100,
+                    "per-page": min(max_works, 200),  # OpenAlex permite max 200/pagina
                     "sort": "publication_date:desc",
                     "select": "id,title,authorships,publication_date,doi,open_access,ids,primary_location,abstract_inverted_index",
                 },
@@ -173,13 +175,14 @@ async def _search_crossref(
     author_name: str,
     cutoff: datetime,
     client: httpx.AsyncClient,
+    max_works: int = 200,
 ) -> List[Dict[str, Any]]:
     try:
         r = await client.get(
             f"{CR_BASE}/works",
             params={
                 "query.author": author_name,
-                "rows": 50,
+                "rows": min(max_works, 1000),  # CrossRef permite max 1000/pagina
                 "sort": "published",
                 "order": "desc",
                 "filter": f"from-pub-date:{cutoff.strftime('%Y-%m-%d')}",
@@ -251,6 +254,8 @@ async def search_articles(
     author_name: str,
     days_back: int,
     semantic_scholar_api_key: Optional[str] = None,  # pastrat pentru compatibilitate, neutilizat
+    max_works: int = 200,
+    max_profiles: int = 3,
     telemetry: Optional[dict] = None,
 ) -> List[Dict[str, Any]]:
     """
@@ -262,8 +267,8 @@ async def search_articles(
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         oa_res, cr_res = await asyncio.gather(
-            _search_openalex(author_name, cutoff, client),
-            _search_crossref(author_name, cutoff, client),
+            _search_openalex(author_name, cutoff, client, max_works, max_profiles),
+            _search_crossref(author_name, cutoff, client, max_works),
             return_exceptions=True,
         )
 
