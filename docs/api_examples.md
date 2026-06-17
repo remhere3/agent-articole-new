@@ -154,7 +154,7 @@ for t in r.json():
 | `name` | string | Numele topicului | obligatoriu |
 | `keywords` | string | Termeni de cautare (fallback) | obligatoriu |
 | `user_question` | string | Intrebarea libera adresata agentului | null |
-| `days_back` | int | Articole din ultimele N zile (1–365) | 7 |
+| `days_back` | int | Articole din ultimele N zile (1–3650). Pentru `author` se recomanda 365–3650 | 7 |
 | `periodicity_hours` | float | Ruleaza la fiecare N ore (min 0.5) | 24 |
 | `timeout_seconds` | int | Timeout maxim pentru o cautare (30–3600) | 300 |
 | `provider` | string | `anthropic` / `tavily` / `searxng` / `author` | `anthropic` |
