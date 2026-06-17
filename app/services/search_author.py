@@ -7,6 +7,7 @@ CrossRef: https://crossref.org (open, politicos)
 import asyncio
 import logging
 import re
+import unicodedata
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
@@ -45,9 +46,19 @@ def _clean_author_name(raw: str) -> str:
     return cleaned or (raw or "").strip()
 
 
+def _strip_diacritics(text: str) -> str:
+    """Elimina diacriticele pentru matching robust: ă/â->a, î->i, ș/ş->s, ț/ţ->t.
+
+    CrossRef/OpenAlex pot stoca numele fara diacritice (ex. 'Raboaca' vs
+    'Răboacă'), deci comparam formele de-diacritizate.
+    """
+    nfkd = unicodedata.normalize("NFKD", text or "")
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+
 def _name_matches(search_name: str, candidate_name: str) -> bool:
-    parts = search_name.lower().split()
-    candidate = candidate_name.lower()
+    parts = _strip_diacritics(search_name).lower().split()
+    candidate = _strip_diacritics(candidate_name).lower()
     return all(p in candidate for p in parts)
 
 
@@ -232,8 +243,10 @@ async def _search_crossref(
                     "query.author": author_name,
                     "rows": rows,
                     "cursor": cursor,
-                    "sort": "published",
-                    "order": "desc",
+                    # FARA sort=published: ar reordona dupa data toata multimea vag
+                    # potrivita si ar ingropa lucrarile autorului. Pe relevanta (default)
+                    # lucrarile reale ale autorului apar primele; _name_matches filtreaza
+                    # zgomotul, iar merged.sort() re-sorteaza pe data la final.
                     "filter": f"from-pub-date:{cutoff.strftime('%Y-%m-%d')}",
                     "select": "DOI,title,author,published,published-print,published-online,abstract,container-title,URL",
                 },
