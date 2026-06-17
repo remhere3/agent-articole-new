@@ -1367,7 +1367,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             <tr>
               <td><code>estimated_cost_usd</code></td>
               <td><span class="d-badge blue">anthropic</span></td>
-              <td>Cost estimat in USD: <code>tokens_input/1M × $3 + tokens_output/1M × $15</code> (preturile claude-sonnet-4-6)</td>
+              <td>Cost estimat in USD: <code>tokens_input/1M × pret_in + tokens_output/1M × pret_out</code>, unde preturile depind de <code>ANTHROPIC_MODEL</code> (ex. Opus 4.8 $5/$25, Sonnet 4.6 $3/$15, Haiku 4.5 $1/$5)</td>
             </tr>
             <tr>
               <td><code>api_calls</code></td>

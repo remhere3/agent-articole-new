@@ -18,9 +18,43 @@ from app.config import settings
 _topic_last_trigger: dict[int, float] = {}
 TRIGGER_COOLDOWN = 60  # secunde
 
-# Pret Anthropic claude-sonnet-4-6 (Mai 2025)
-_PRICE_INPUT_PER_M = 3.0    # USD per 1M input tokens
-_PRICE_OUTPUT_PER_M = 15.0  # USD per 1M output tokens
+# Preturi Anthropic per 1M tokeni (input, output) in USD.
+# Sursa: platform.claude.com/docs pricing. Costul se calculeaza in functie de
+# modelul configurat (ANTHROPIC_MODEL), nu hardcodat — altfel un model Opus
+# rulat cu preturi Sonnet ar subevalua costul cu ~40%.
+_MODEL_PRICES = {
+    "claude-opus-4-8":   (5.0, 25.0),
+    "claude-opus-4-7":   (5.0, 25.0),
+    "claude-opus-4-6":   (5.0, 25.0),
+    "claude-opus-4-5":   (5.0, 25.0),
+    "claude-sonnet-4-6": (3.0, 15.0),
+    "claude-sonnet-4-5": (3.0, 15.0),
+    "claude-haiku-4-5":  (1.0, 5.0),
+    "claude-fable-5":    (10.0, 50.0),
+}
+_DEFAULT_PRICE = (3.0, 15.0)  # fallback prudent (Sonnet-tier)
+
+
+def _model_price(model: str | None) -> tuple[float, float]:
+    """Pret (input, output) per 1M tokeni pentru model.
+
+    Potrivire exacta intai; altfel dupa familie (opus/haiku/fable/sonnet);
+    altfel fallback prudent Sonnet-tier.
+    """
+    if not model:
+        return _DEFAULT_PRICE
+    if model in _MODEL_PRICES:
+        return _MODEL_PRICES[model]
+    m = model.lower()
+    if "opus" in m:
+        return (5.0, 25.0)
+    if "haiku" in m:
+        return (1.0, 5.0)
+    if "fable" in m or "mythos" in m:
+        return (10.0, 50.0)
+    if "sonnet" in m:
+        return (3.0, 15.0)
+    return _DEFAULT_PRICE
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/searches", tags=["searches"])
@@ -74,9 +108,10 @@ async def _run_search(topic_id: int, db: Session) -> models.SearchRun:
         # Estimare cost (doar pentru Anthropic care raporteaza tokeni)
         ti, to = run.tokens_input, run.tokens_output
         if ti and to:
+            p_in, p_out = _model_price(settings.anthropic_model)
             run.estimated_cost_usd = (
-                ti / 1_000_000 * _PRICE_INPUT_PER_M +
-                to / 1_000_000 * _PRICE_OUTPUT_PER_M
+                ti / 1_000_000 * p_in +
+                to / 1_000_000 * p_out
             )
         topic.last_run_at = datetime.now()
         db.commit()
