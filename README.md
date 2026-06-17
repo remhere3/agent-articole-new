@@ -96,7 +96,7 @@ la o rulare la alta. Nu este un bug — sunt **doua mecanisme fundamental diferi
 | Sursa | Web search generic via Claude (`web_search` tool) | OpenAlex + CrossRef (baze bibliografice) |
 | Interpretare query | tratat ca **topic**, termenii descriptivi tradusi in EN | tratat ca **entitate-autor** (rezolvat la author ID) |
 | Acoperire | esantion "best effort" din ce iese la cateva cautari web | lista cvasi-completa a productiei autorului |
-| Limita | nr. de cautari pe care le decide modelul + buget de tokeni | pana la 100 (OpenAlex) / 50 (CrossRef) inregistrari |
+| Limita | nr. de cautari pe care le decide modelul + buget de tokeni | `AUTHOR_MAX_WORKS` lucrari/profil × `AUTHOR_MAX_PROFILES` profiluri (OpenAlex + CrossRef paginate cu cursor) |
 | Determinism | **non-determinist** — rezultatele variaza intre rulari | determinist — aceeasi interogare → aceleasi date |
 | Abstract | sintetizat de model | abstract real din baza de date |
 
