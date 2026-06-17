@@ -98,6 +98,7 @@ body {
 #docs-root .d-badge.red    { background:rgba(181,25,44,.12); color: var(--d-red); }
 #docs-root .d-badge.gray   { background:rgba(0,0,0,.07);     color: var(--d-muted); }
 #docs-root .d-badge.purple { background:rgba(100,51,180,.12); color: var(--d-purple); }
+#docs-root .d-badge.teal   { background:rgba(0,137,123,.12); color: #00695c; }
 
 /* Section anchor */
 .d-section-anchor { scroll-margin-top: 24px; }
@@ -625,7 +626,7 @@ body {
           <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
         </tr>
         <tr>
-          <td><span class="d-badge" style="background:rgba(0,150,136,.12);color:#00897b;">author</span></td>
+          <td><span class="d-badge teal">author</span></td>
           <td>OpenAlex (author ID → lucrari filtrate) + CrossRef (<code>query.author</code>) in paralel — deduplicare dupa titlu</td>
           <td>0 (API-uri publice gratuite)</td>
           <td>3–8s</td>
@@ -756,7 +757,7 @@ body {
             <td><span class="d-badge gray">Nu</span> (<code>SEARXNG_BASE_URL</code>)</td>
           </tr>
           <tr>
-            <td><span class="d-badge" style="background:rgba(0,150,136,.12);color:#00897b;">author</span></td>
+            <td><span class="d-badge teal">author</span></td>
             <td>OpenAlex API + CrossRef API (baze de date academice, nu cautare web)</td>
             <td>Python direct (fara LLM)</td>
             <td><span class="d-badge gray">Nu</span> (nicio cheie necesara)</td>
@@ -1048,7 +1049,7 @@ TOPICS = [
             <td>Self-hosted complet, fara costuri externe; SearXNG cauta, Ollama rezuma</td>
           </tr>
           <tr>
-            <td><span class="d-badge" style="background:rgba(0,150,136,.12);color:#00897b;">author</span></td>
+            <td><span class="d-badge teal">author</span></td>
             <td>Toate lucrarile autorului din fereastra <code>days_back</code></td>
             <td><strong>Cautare dupa autor</strong> — monitorizare productie stiintifica a unui cercetator specific; <code>keywords</code> = numele autorului</td>
           </tr>
@@ -1403,12 +1404,12 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             </tr>
             <tr>
               <td><code>api_calls</code></td>
-              <td><span class="d-badge" style="background:rgba(0,150,136,.1);color:#00897b">author</span></td>
+              <td><span class="d-badge teal">author</span></td>
               <td>Intotdeauna 2: 1 apel OpenAlex (autor + lucrari) + 1 apel CrossRef (query.author)</td>
             </tr>
             <tr>
               <td><code>tokens_input</code> / <code>tokens_output</code> / <code>estimated_cost_usd</code></td>
-              <td><span class="d-badge orange">tavily</span> <span class="d-badge purple">searxng</span> <span class="d-badge" style="background:rgba(0,150,136,.1);color:#00897b">author</span></td>
+              <td><span class="d-badge orange">tavily</span> <span class="d-badge purple">searxng</span> <span class="d-badge teal">author</span></td>
               <td><code>null</code> — acesti provideri nu folosesc modele LLM cu cost per token, deci nu se calculeaza cost</td>
             </tr>
           </tbody>

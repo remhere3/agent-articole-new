@@ -217,7 +217,7 @@ h1, h2, h3, h4, h5, h6 {
 .badge-tavily    { background: rgba(196,92,0,.1);  color: var(--orange); }
 .badge-ollama    { background: rgba(26,107,74,.1); color: var(--green); }
 .badge-searxng   { background: rgba(100,60,180,.1); color: #6433b4; }
-.badge-author    { background: rgba(0,150,136,.1);  color: #00897b; }
+.badge-author    { background: rgba(0,137,123,.12); color: #00695c; }
 .badge-success   { background: rgba(26,107,74,.1); color: var(--green); }
 .badge-error     { background: rgba(181,25,44,.1); color: var(--red); }
 .badge-running   { background: rgba(0,68,170,.1);  color: var(--blue); }
