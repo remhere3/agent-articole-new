@@ -6,7 +6,7 @@ Agent automat de cautare articole stiintifice cu interfata HTML de administrare.
 
 - **Cautare articole** pe surse academice (arXiv, PubMed, Nature, IEEE, etc.)
 - **Filtrare stricta dupa data** — parametru nativ API + filtru garantat Python post-procesare
-- **5 provideri de cautare:** Anthropic Claude, Tavily, Ollama+Tavily (local), SearXNG+Ollama (self-hosted), Author (OpenAlex+CrossRef)
+- **4 provideri de cautare:** Anthropic Claude, Tavily, SearXNG+Ollama (self-hosted), Author (OpenAlex+CrossRef)
 - **Stergere watermarks IEEE** — snippet-urile cu text institutional IEEE sunt curatate automat
 - **Reincercari automate** — apelurile externe (Tavily/Ollama/SearXNG) se reincearca cu backoff exponential la erori tranzitorii
 - **Validare input** — limite de lungime pe campurile care intra in prompt (anti prompt-injection / overflow)
@@ -57,7 +57,6 @@ agent_articole/
 │   │   ├── _utils.py            # Utilitare comune: parse_date, strip_watermarks, retry_async, domenii academice
 │   │   ├── search_anthropic.py  # Claude + web_search tool
 │   │   ├── search_tavily.py     # Tavily direct
-│   │   ├── search_ollama.py     # Ollama + Tavily ca tool
 │   │   ├── search_searxng.py    # SearXNG + Ollama (self-hosted)
 │   │   ├── search_author.py     # OpenAlex + CrossRef (cautare dupa autor)
 │   │   ├── email_service.py     # Rapoarte email HTML
@@ -83,7 +82,6 @@ agent_articole/
 |----------|------|----------|-------|----------|
 | Anthropic | ~$0.01-0.05/run | Da | Nu | `ANTHROPIC_API_KEY` |
 | Tavily | ~$0.001/run | Da | Nu | `TAVILY_API_KEY` |
-| Ollama+Tavily | Gratuit LLM + Tavily | Da | Da (LLM) | `TAVILY_API_KEY` + Ollama |
 | SearXNG+Ollama | 0 | Self-hosted | Da | `SEARXNG_BASE_URL` + Ollama |
 | Author (OpenAlex+CrossRef) | 0 | Da | Nu | nimic (fara API key) |
 

@@ -37,7 +37,7 @@ class Topic(Base):
     days_back = Column(Integer, default=7)            # only articles from last N days
     periodicity_hours = Column(Float, default=24.0)  # run every N hours
     timeout_seconds = Column(Integer, default=300)    # max seconds per search run
-    provider = Column(String(50), default="anthropic")  # anthropic | tavily | ollama
+    provider = Column(String(50), default="anthropic")  # anthropic | tavily | searxng | author
     active = Column(Boolean, default=True)
     send_email = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -167,11 +167,6 @@ def _build_telemetry(topic: models.Topic, articles: list, elapsed_s: float) -> d
     elif topic.provider == "tavily":
         model = "—"
         web_search = "Tavily API (academic + general, 2 treceri)"
-    elif topic.provider == "ollama":
-        is_cloud = settings.ollama_base_url.startswith("https://")
-        model = settings.ollama_model
-        mode = "Ollama Cloud" if is_cloud else "Ollama local"
-        web_search = f"Tavily API → {mode} ({model}) rezuma"
     elif topic.provider == "searxng":
         model = settings.ollama_model
         web_search = f"SearXNG ({settings.searxng_base_url}) → Ollama local ({model}) rezuma"
@@ -217,21 +212,6 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
             keywords=query,
             days_back=topic.days_back,
             api_key=settings.tavily_api_key,
-            telemetry=telemetry,
-        )
-
-    elif topic.provider == "ollama":
-        if not settings.tavily_api_key:
-            raise ValueError("TAVILY_API_KEY required for ollama provider")
-        from app.services.search_ollama import search_articles
-        return await search_articles(
-            keywords=topic.keywords or topic.user_question,
-            days_back=topic.days_back,
-            tavily_api_key=settings.tavily_api_key,
-            ollama_base_url=settings.ollama_base_url,
-            ollama_model=settings.ollama_model,
-            ollama_api_key=settings.ollama_api_key or None,
-            user_question=topic.user_question or None,
             telemetry=telemetry,
         )
 
@@ -377,18 +357,6 @@ async def validate_provider(provider: str):
             return {"ok": True, "message": f"Tavily OK — {len(result.get('results', []))} rezultate test"}
         except Exception as e:
             return {"ok": False, "message": f"Tavily error: {str(e)[:200]}"}
-
-    elif provider == "ollama":
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                r = await client.get(f"{settings.ollama_base_url}/api/tags")
-                if r.status_code == 200:
-                    models_list = r.json().get("models", [])
-                    return {"ok": True, "message": f"Ollama OK — {len(models_list)} modele disponibile la {settings.ollama_base_url}"}
-                return {"ok": False, "message": f"Ollama răspuns neașteptat: HTTP {r.status_code}"}
-        except Exception as e:
-            return {"ok": False, "message": f"Ollama nu răspunde la {settings.ollama_base_url}: {str(e)[:200]}"}
 
     elif provider == "searxng":
         try:

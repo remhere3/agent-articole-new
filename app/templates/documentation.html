@@ -175,7 +175,7 @@ body {
         <tr><td><strong>Cautare articole</strong></td><td>arXiv, PubMed, Nature, Science, IEEE, ACM, bioRxiv, medRxiv si altele</td></tr>
         <tr><td><strong>Filtrare stricta data</strong></td><td>Parametru <code>days_back</code> — doar articolele din ultimele N zile</td></tr>
         <tr><td><strong>Intrebare libera</strong></td><td>Campul <code>user_question</code> permite adresarea unei intrebari in limbaj natural (protejat anti-prompt-injection)</td></tr>
-        <tr><td><strong>5 provideri</strong></td><td>Anthropic Claude, Tavily, Ollama+Tavily (local), SearXNG+Ollama (self-hosted), Author (OpenAlex+CrossRef)</td></tr>
+        <tr><td><strong>4 provideri</strong></td><td>Anthropic Claude, Tavily, SearXNG+Ollama (self-hosted), Author (OpenAlex+CrossRef)</td></tr>
         <tr><td><strong>Scheduler automat</strong></td><td>APScheduler verifica la 15 min si ruleaza topicurile scadente; timeout configurabil per topic</td></tr>
         <tr><td><strong>Toate rezultatele per run</strong></td><td>Fiecare cautare salveaza toate articolele gasite; filtrarea se face doar dupa data publicarii (<code>days_back</code>), nu dupa rularile anterioare</td></tr>
         <tr><td><strong>Cost estimat</strong></td><td>Fiecare run Anthropic calculeaza costul in USD bazat pe tokens input/output ($3/$15 per million)</td></tr>
@@ -477,7 +477,7 @@ body {
       <!-- 5. Provider branch -->
       <polygon points="520,236 624,258 520,280 416,258" fill="#78350f" stroke="#f59e0b" stroke-width="2"/>
       <text x="520" y="254" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">provider?</text>
-      <text x="520" y="270" text-anchor="middle" fill="#fde68a" font-size="9">anthropic | tavily | ollama | searxng | author</text>
+      <text x="520" y="270" text-anchor="middle" fill="#fde68a" font-size="9">anthropic | tavily | searxng | author</text>
 
       <!-- anthropic branch -->
       <line x1="416" y1="258" x2="200" y2="258" stroke="#60a5fa" stroke-width="2" marker-end="url(#fab)"/>
@@ -639,13 +639,6 @@ body {
           <td><code>TAVILY_API_KEY</code></td>
         </tr>
         <tr>
-          <td><span class="d-badge green">ollama</span></td>
-          <td>Tavily cauta → Ollama rezuma local (fara costuri LLM)</td>
-          <td>~$0.001 (Tavily)</td>
-          <td>15–60s</td>
-          <td><code>TAVILY_API_KEY</code> + Ollama instalat</td>
-        </tr>
-        <tr>
           <td><span class="d-badge purple">searxng</span></td>
           <td>SearXNG cauta → Ollama rezuma local (self-hosted, fara costuri externe)</td>
           <td>0</td>
@@ -673,13 +666,11 @@ body {
         <p style="margin:.35rem 0 0;font-size:.84rem;">
           Modelele Ollama locale (<code>llama3</code>, <code>gemma4:e4b</code>, <code>mistral</code> etc.)
           <strong>nu au acces la internet</strong> — ele ruleaza 100% local si nu pot cauta nimic pe cont propriu.
-          Providerul <code>ollama</code> din aceasta aplicatie foloseste <strong>Tavily</strong> pentru cautarea web
-          si trimite rezultatele catre modelul local doar pentru <strong>rezumare si structurare</strong>.
-          Prin urmare, <code>TAVILY_API_KEY</code> este obligatorie si pentru <code>ollama</code>.
+          De aceea Ollama este folosit doar pentru <strong>rezumare si structurare</strong>, nu pentru cautare.
         </p>
         <p style="margin:.35rem 0 0;font-size:.84rem;">
-          Similar, providerul <code>searxng</code> <strong>nu are web search nativ in model</strong> —
-          <strong>SearXNG</strong> (self-hosted pe retea) face cautarea web in locul lui Tavily, fara cheie API externa,
+          Providerul <code>searxng</code> <strong>nu are web search nativ in model</strong> —
+          <strong>SearXNG</strong> (self-hosted pe retea) face cautarea web, fara cheie API externa,
           iar <strong>Ollama</strong> (local) preia rezultatele si le rezuma.
           Prin urmare, <code>TAVILY_API_KEY</code> nu este necesara pentru <code>searxng</code>, dar
           <code>SEARXNG_BASE_URL</code> si Ollama local trebuie sa fie disponibile.
@@ -755,12 +746,6 @@ body {
             <td><span class="d-badge orange">tavily</span></td>
             <td>Tavily API</td>
             <td>Python direct (fara LLM)</td>
-            <td><span class="d-badge red">Da</span></td>
-          </tr>
-          <tr>
-            <td><span class="d-badge green">ollama</span></td>
-            <td>Tavily API <em>(obligatoriu)</em></td>
-            <td>Ollama local (<code>gemma4:e4b</code>, <code>llama3</code> etc.)</td>
             <td><span class="d-badge red">Da</span></td>
           </tr>
           <tr>
@@ -1069,11 +1054,6 @@ TOPICS = [
             <td><strong>Volum maxim</strong>, surse academice garantate, filtrare stricta domenii</td>
           </tr>
           <tr>
-            <td><span class="d-badge green">ollama</span></td>
-            <td>10–25 articole</td>
-            <td>Tavily pentru volum + rezumare locala fara cost LLM</td>
-          </tr>
-          <tr>
             <td><span class="d-badge purple">searxng</span></td>
             <td>10–25 articole</td>
             <td>Self-hosted complet, fara costuri externe; SearXNG cauta, Ollama rezuma</td>
@@ -1194,7 +1174,7 @@ httpx.delete(f"{BASE}/users/1")</pre>
         <tr><td><code>days_back</code></td><td>int</td><td>7</td><td>Articole publicate in ultimele N zile (1–3650). Pentru provider <code>author</code> se recomanda 365–3650.</td></tr>
         <tr><td><code>periodicity_hours</code></td><td>float</td><td>24</td><td>Interval rulare automata (ore, min 0.5)</td></tr>
         <tr><td><code>timeout_seconds</code></td><td>int</td><td>300</td><td>Timeout maxim pentru o cautare in secunde (30–3600). Dupa expirare, run-ul e marcat cu status <code>error</code>.</td></tr>
-        <tr><td><code>provider</code></td><td>string</td><td>anthropic</td><td><code>anthropic</code> / <code>tavily</code> / <code>ollama</code> / <code>searxng</code> / <code>author</code>. Pentru <code>author</code>, <code>keywords</code> trebuie sa contina numele autorului (ex: <code>"Oana Botoran"</code>)</td></tr>
+        <tr><td><code>provider</code></td><td>string</td><td>anthropic</td><td><code>anthropic</code> / <code>tavily</code> / <code>searxng</code> / <code>author</code>. Pentru <code>author</code>, <code>keywords</code> trebuie sa contina numele autorului (ex: <code>"Oana Botoran"</code>)</td></tr>
         <tr><td><code>active</code></td><td>bool</td><td>true</td><td>Include in scheduler automat</td></tr>
         <tr><td><code>send_email</code></td><td>bool</td><td>true</td><td>Trimite email dupa cautare</td></tr>
         <tr><td><code>user_ids</code></td><td>list[int]</td><td>[]</td><td>Utilizatori abonati</td></tr>
@@ -1429,11 +1409,6 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             </tr>
             <tr>
               <td><code>api_calls</code></td>
-              <td><span class="d-badge green">ollama</span></td>
-              <td>Cereri Tavily + 1 apel LLM local pentru rezumare</td>
-            </tr>
-            <tr>
-              <td><code>api_calls</code></td>
               <td><span class="d-badge purple">searxng</span></td>
               <td>Cereri SearXNG (2 interogari) + 1 apel LLM local Ollama pentru rezumare</td>
             </tr>
@@ -1444,7 +1419,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             </tr>
             <tr>
               <td><code>tokens_input</code> / <code>tokens_output</code> / <code>estimated_cost_usd</code></td>
-              <td><span class="d-badge orange">tavily</span> <span class="d-badge green">ollama</span> <span class="d-badge purple">searxng</span> <span class="d-badge" style="background:rgba(0,150,136,.1);color:#00897b">author</span></td>
+              <td><span class="d-badge orange">tavily</span> <span class="d-badge purple">searxng</span> <span class="d-badge" style="background:rgba(0,150,136,.1);color:#00897b">author</span></td>
               <td><code>null</code> — acesti provideri nu folosesc modele LLM cu cost per token, deci nu se calculeaza cost</td>
             </tr>
           </tbody>
@@ -1466,7 +1441,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
             </tr>
             <tr>
               <td><code>GET /validate-provider/{provider}</code></td>
-              <td>Testeaza conectivitatea live: Anthropic (<code>models.list()</code>), Tavily (cautare test), Ollama (<code>/api/tags</code>), SearXNG (<code>GET /search?format=json</code>), Author (<code>GET /authors?search=test</code> pe OpenAlex + <code>GET /works?query.author=test</code> pe CrossRef). Returneaza <code>{"ok": bool, "message": "..."}</code></td>
+              <td>Testeaza conectivitatea live: Anthropic (<code>models.list()</code>), Tavily (cautare test), SearXNG (<code>GET /search?format=json</code>), Author (<code>GET /authors?search=test</code> pe OpenAlex + <code>GET /works?query.author=test</code> pe CrossRef). Returneaza <code>{"ok": bool, "message": "..."}</code></td>
             </tr>
           </tbody>
         </table>

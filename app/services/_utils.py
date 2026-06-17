@@ -1,7 +1,7 @@
 """Utilitare partajate intre providerii de cautare.
 
 Aceste functii erau duplicate (copy-paste) in search_anthropic / search_tavily /
-search_searxng / search_ollama / search_author. Le-am consolidat aici ca un fix
+search_searxng / search_author. Le-am consolidat aici ca un fix
 de regex sau o noua lista de domenii sa se faca intr-un singur loc.
 """
 import asyncio
