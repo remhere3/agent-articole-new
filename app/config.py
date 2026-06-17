@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     ollama_api_key: Optional[str] = None  # pentru Ollama Cloud
 
     searxng_base_url: str = "http://localhost:8080"
+    searxng_max_articles: int = 25  # cate articole trimite SearXNG la Ollama pentru rezumare
 
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587

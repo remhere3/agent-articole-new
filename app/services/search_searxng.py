@@ -178,10 +178,14 @@ async def search_articles(
     ollama_model: str = "llama3.2",
     ollama_api_key: Optional[str] = None,
     user_question: Optional[str] = None,
+    max_articles: int = 25,
     telemetry: Optional[dict] = None,
 ) -> List[Dict[str, Any]]:
     """
     SearXNG cauta articolele, Ollama local rezuma rezultatele.
+
+    max_articles: cate articole se trimit la Ollama pentru rezumare (cap per
+    rulare). Limitat ca sa nu se faca prompt-uri prea lungi -> timeout Ollama.
     """
     query = user_question or keywords
     cutoff = datetime.now() - timedelta(days=days_back)
@@ -311,8 +315,8 @@ async def search_articles(
 
     logger.info(f"[SearXNG] Dupa filtrare completa: {len(pre_filtered)} articole pentru Ollama")
 
-    # Trimite maxim 12 articole la Ollama pentru a evita timeout
-    to_summarize = pre_filtered[:12]
+    # Trimite maxim `max_articles` la Ollama pentru a evita timeout (configurabil)
+    to_summarize = pre_filtered[:max_articles]
     logger.info(f"[SearXNG] Pasul 2 — {ollama_model} rezuma {len(to_summarize)}/{len(pre_filtered)} rezultate")
     cutoff_str = cutoff.strftime("%Y-%m-%d")
     results_text = json.dumps(to_summarize, ensure_ascii=False, indent=2)

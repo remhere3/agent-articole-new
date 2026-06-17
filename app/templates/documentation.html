@@ -1495,7 +1495,7 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
         </tr>
         <tr>
           <td>14</td>
-          <td><strong>Limita batch 12 articole catre LLM</strong> — inainte de a trimite rezultatele la Ollama pentru rezumare, lista e trunchiatata la maxim 12 articole; aplicat la <span class="d-badge purple" style="font-size:.72rem">searxng</span></td>
+          <td><strong>Limita batch articole catre LLM</strong> — inainte de a trimite rezultatele la Ollama pentru rezumare, lista e trunchiatata la <code>SEARXNG_MAX_ARTICLES</code> (default 25, configurabil in <code>.env</code>); aplicat la <span class="d-badge purple" style="font-size:.72rem">searxng</span></td>
           <td>Previne timeout-ul Ollama (120s) cauzat de prompt-uri prea lungi cand Tavily / SearXNG returneaza 20+ articole</td>
         </tr>
         <tr>
@@ -1789,6 +1789,7 @@ Provider: anthropic · Run #37</div>
         <tr><td><code>OLLAMA_MODEL</code></td><td>llama3.2</td><td>Modelul Ollama (ex: <code>gemma4:e4b</code>, <code>llama3.1</code>, <code>mistral</code>)</td></tr>
         <tr><td><code>OLLAMA_API_KEY</code></td><td>—</td><td>API key pentru Ollama Cloud; gol = local</td></tr>
         <tr><td><code>SEARXNG_BASE_URL</code></td><td>—</td><td>URL server SearXNG self-hosted, ex: <code>http://10.10.28.21:8181</code> (necesar pentru providerul <code>searxng</code>)</td></tr>
+        <tr><td><code>SEARXNG_MAX_ARTICLES</code></td><td>25</td><td>Cate articole trimite <code>searxng</code> la Ollama pentru rezumare (cap per rulare; mai mult = prompt mai lung, risc timeout)</td></tr>
         <tr><td><code>SMTP_HOST</code></td><td>smtp.gmail.com</td><td>Server SMTP</td></tr>
         <tr><td><code>SMTP_PORT</code></td><td>587</td><td>Port SMTP</td></tr>
         <tr><td><code>SMTP_USER</code></td><td>—</td><td>Username SMTP</td></tr>

@@ -260,6 +260,7 @@ async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
             ollama_model=settings.ollama_model,
             ollama_api_key=settings.ollama_api_key or None,
             user_question=topic.user_question or None,
+            max_articles=settings.searxng_max_articles,
             telemetry=telemetry,
         )
 
