@@ -255,7 +255,7 @@ body {
       <rect x="53" y="230" width="155" height="64" rx="6" fill="#172554" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
       <text x="130" y="251" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_anthropic</text>
       <text x="130" y="267" text-anchor="middle" fill="#bfdbfe" font-size="10">Claude + web_search</text>
-      <text x="130" y="281" text-anchor="middle" fill="#93c5fd" font-size="9">tool (max 5 apeluri)</text>
+      <text x="130" y="281" text-anchor="middle" fill="#93c5fd" font-size="9">tool (max 12 apeluri)</text>
       <text x="130" y="290" text-anchor="middle" fill="#60a5fa" font-size="8">validare stricta data</text>
 
       <!-- search_tavily -->
@@ -475,7 +475,7 @@ body {
       <rect x="52" y="280" width="296" height="70" rx="6" fill="#172554" stroke="#3b82f6" stroke-width="2" filter="url(#fsh)"/>
       <text x="200" y="300" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">search_anthropic</text>
       <text x="200" y="316" text-anchor="middle" fill="#bfdbfe" font-size="10">Claude + web_search_20250305</text>
-      <text x="200" y="330" text-anchor="middle" fill="#93c5fd" font-size="9">max 5 apeluri  ·  prompt cu data explicita</text>
+      <text x="200" y="330" text-anchor="middle" fill="#93c5fd" font-size="9">max 12 apeluri  ·  prompt cu data explicita</text>
       <text x="200" y="342" text-anchor="middle" fill="#60a5fa" font-size="8">model: claude-sonnet-4-x (configurabil)</text>
 
       <!-- tavily branch -->
@@ -781,7 +781,7 @@ body {
           <tbody>
             <tr>
               <td><strong>Sursa date</strong></td>
-              <td>Web general (via <code>web_search_20250305</code> nativ, max 5 apeluri)</td>
+              <td>Web general (via <code>web_search_20250305</code> nativ, max 12 apeluri)</td>
               <td>Tavily API</td>
               <td>SearXNG API (self-hosted, retea locala)</td>
               <td>OpenAlex API + CrossRef API (baze de date academice structurate)</td>
@@ -875,11 +875,12 @@ body {
 
     <!-- Limita 10 articole -->
     <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.25);border-left:4px solid #c45c00;border-radius:.4rem;padding:.75rem 1rem;">
-      <strong style="color:#c45c00;font-size:.9rem;"><i class="bi bi-exclamation-triangle me-1"></i>Limita structurala: ~10 articole per run (provider Anthropic)</strong>
+      <strong style="color:#c45c00;font-size:.9rem;"><i class="bi bi-exclamation-triangle me-1"></i>Limita structurala: putine articole per run (provider Anthropic)</strong>
       <p style="margin:.4rem 0 0;font-size:.85rem;">
-        Tool-ul <code>web_search_20250305</code> permite maxim <strong>5 apeluri de cautare</strong> per run. Fiecare apel returneaza
-        2–4 articole relevante dupa filtrare de data. Rezultatul tipic este <strong>5–15 articole per run</strong>, indiferent
-        de complexitatea intrebarii.
+        Tool-ul <code>web_search_20250305</code> permite pana la <strong>12 apeluri de cautare</strong> per run, dar
+        modelul decide cate face si <strong>tinde sa se opreasca dupa cateva</strong> — deci marirea bugetului de cautari
+        nu garanteaza mai multe rezultate. Web search-ul e <strong>non-determinist</strong> (rezultatele variaza intre rulari),
+        iar rezultatul tipic ramane <strong>~5 articole per run</strong>, indiferent de complexitatea intrebarii.
       </p>
       <p style="margin:.35rem 0 0;font-size:.85rem;">
         Aceasta nu e o limitare a aplicatiei — e o limita tehnica a tool-ului nativ Anthropic.
