@@ -71,8 +71,15 @@ agent_articole/
 │   └── academic_domains.txt # Lista domenii academice (editabila fara cod)
 ├── docs/
 │   └── api_examples.md      # Exemple curl + Python
+├── tests/
+│   ├── conftest.py          # Fixturi: TestClient + SQLite in-memory, override get_db
+│   ├── test_utils.py        # Nivel 1 — teste unitare pentru _utils.py
+│   ├── test_api.py          # Nivel 2 — endpoint-uri REST (TestClient)
+│   └── test_providers.py    # Nivel 2 — provider author cu respx (mock HTTP)
+├── pytest.ini               # Config pytest (asyncio_mode=strict)
 ├── .env.example
 ├── requirements.txt
+├── requirements-dev.txt     # Dependinte de test (pytest, pytest-asyncio, respx)
 └── run.py
 ```
 
@@ -186,6 +193,72 @@ sudo systemctl status agent-articole    # status
 sudo systemctl restart agent-articole   # repornire dupa modificari
 sudo journalctl -u agent-articole -f    # log-uri live
 ```
+
+## Testare
+
+Suita de teste (`pytest`) traieste in `tests/` — **105 teste**, toate ruleaza local,
+**fara internet, fara chei API si fara baza de date reala**. E impartita pe doua niveluri.
+
+| Nivel | Fisier | Ce verifica | Izolare |
+|-------|--------|-------------|---------|
+| **1** | `tests/test_utils.py` | Functiile pure din `app/services/_utils.py` (parsare data, watermark, domenii, potrivire nume, retry) | Niciuna (functii pure) |
+| **2** | `tests/test_api.py` | Endpoint-urile REST (CRUD, validari, 404/400/422/429, flux de cautare) | SQLite in-memory + provider mock-uit |
+| **2** | `tests/test_providers.py` | Providerul `author` (OpenAlex + CrossRef): parsare, filtrare, deduplicare | HTTP mock-uit cu `respx` |
+
+### 1. Instalare dependinte de test
+
+Dependintele de test sunt separate de cele de productie, in `requirements-dev.txt`:
+
+```bash
+source venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+### 2. Rulare
+
+```bash
+pytest                                  # toata suita (config din pytest.ini)
+pytest tests/test_utils.py              # un singur fisier
+pytest tests/test_api.py::TestUsers     # o singura clasa
+pytest -k cooldown                      # filtreaza dupa nume
+pytest -v -x                            # verbose, opreste la primul esec
+```
+
+Rezultat asteptat: `105 passed`. Daca `pytest` nu e in PATH (venv neactivat),
+ruleaza prin interpretorul din venv: `./venv/bin/python -m pytest`.
+
+### Nivel 1 — teste unitare (`test_utils.py`)
+
+Acopera functiile pure: primesc input, se verifica iesirea. Niciun setup, ruleaza in milisecunde,
+si prind regresiile tacite in zonele fragile (regex de watermark, ordinea formatelor de data, logica
+de retry). Functii testate: `parse_date`, `strip_watermarks`, `domain` / `is_academic`,
+`_load_academic_domains`, `looks_like_person_name`, `author_in_result`, `is_retryable_http`,
+`describe_exc`, `retry_async`.
+
+### Nivel 2 — endpoint-uri (`test_api.py`)
+
+Pornesc aplicatia FastAPI in memorie cu `TestClient` si o baza **SQLite in-memory** izolata per test.
+Fixtura din `tests/conftest.py` suprascrie dependenta `get_db` (deci nu se atinge `agent_articole.db`
+real) si nu declanseaza `lifespan` (deci scheduler-ul real nu porneste). Fluxul de cautare e testat
+cu providerul **mock-uit** (`monkeypatch` pe `searches._dispatch_search`) — zero apeluri externe.
+Se verifica: CRUD users/topics, validari `422`, email duplicat `400`, resursa inexistenta `404`,
+relatia topic↔user, si cooldown-ul de trigger (`429`).
+
+### Nivel 2 — provideri cu `respx` (`test_providers.py`)
+
+`respx` intercepteaza apelurile HTTP catre `api.openalex.org` / `api.crossref.org` si le intoarce un
+raspuns fix. Astfel se testeaza **logica noastra** de parsare/filtrare/deduplicare — determinist, fara
+internet, fara cost. Cazuri: parsare work OpenAlex (URL DOI, abstract din inverted index), filtrare
+dupa `cutoff`, deduplicare titlu intre OA si CR, filtrare autor nepotrivit, si reziliența cand OpenAlex
+pica (500) — providerul continua cu CrossRef.
+
+### Cum adaugi teste noi
+
+1. Pune fisierul in `tests/`, cu nume `test_*.py` (altfel `pytest` nu il colecteaza).
+2. Pentru endpoint-uri: foloseste fixtura `client` din `conftest.py` (TestClient cu DB izolata, gata facut).
+3. Pentru cod `async`: marcheaza testul cu `@pytest.mark.asyncio`.
+4. Pentru orice apel HTTP extern: mock-uieste-l cu `respx` — testele NU trebuie sa atinga reteaua.
+5. Ruleaza `pytest -v` si verifica ca totul e verde inainte de commit.
 
 ## Documentatie API
 

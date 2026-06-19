@@ -150,6 +150,7 @@ body {
     <a href="#ntfy">Notificari ntfy</a>
     <a href="#config">Configurare .env</a>
     <a href="#deployment">Deployment systemd</a>
+    <a href="#testing">Testare</a>
   </nav>
   <div style="padding:.75rem 1rem 0;border-top:1px solid var(--d-border);margin-top:.5rem;">
     <a href="/" style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:#0044aa;text-decoration:none;font-weight:500;">
@@ -1889,6 +1890,178 @@ sudo systemctl stop agent-articole         # oprire</pre>
       In plus, log stream-ul din UI ar afisa doar log-urile unui singur worker.<br><br>
       Un singur process async (FastAPI + AsyncIOScheduler) este suficient — concurenta este gestionata de event loop, nu de procese multiple.
       <strong>Nu adauga <code>--workers N</code>.</strong>
+    </div>
+
+  </div>
+</div>
+</section>
+
+<!-- ══ TESTARE ══════════════════════════════════════════════ -->
+<section id="testing" class="d-section-anchor">
+<div class="d-card">
+  <div class="d-card-header"><i class="bi bi-check2-square me-1"></i>Testare automata</div>
+  <div class="d-card-body">
+
+    <p>
+      Proiectul are o suita de teste <code>pytest</code> in directorul <code>tests/</code>
+      — <strong>105 teste</strong>, toate ruleaza local, <strong>fara internet, fara chei API si fara baza de date reala</strong>.
+      Suita e impartita pe doua niveluri.
+    </p>
+
+    <table class="d-table" style="margin-bottom:1rem">
+      <thead><tr><th>Nivel</th><th>Fisier</th><th>Ce verifica</th><th>Izolare</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="d-badge green">Nivel 1</span></td>
+          <td><code>tests/test_utils.py</code></td>
+          <td>Functiile pure din <code>app/services/_utils.py</code> (parsare data, watermark, domenii, potrivire nume, retry)</td>
+          <td>Niciuna necesara (functii pure)</td>
+        </tr>
+        <tr>
+          <td><span class="d-badge blue">Nivel 2</span></td>
+          <td><code>tests/test_api.py</code></td>
+          <td>Endpoint-urile REST (CRUD, validari, 404/400/422/429, flux de cautare)</td>
+          <td>SQLite in-memory + provider mock-uit</td>
+        </tr>
+        <tr>
+          <td><span class="d-badge blue">Nivel 2</span></td>
+          <td><code>tests/test_providers.py</code></td>
+          <td>Providerul <code>author</code> (OpenAlex + CrossRef): parsare, filtrare, deduplicare</td>
+          <td>HTTP mock-uit cu <code>respx</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Instalare -->
+    <h6 style="font-weight:700;margin-top:1.25rem"><i class="bi bi-box-seam me-1"></i>1. Instalare dependinte de test</h6>
+    <p style="margin-bottom:.5rem">
+      Dependintele de test sunt separate de cele de productie, in <code>requirements-dev.txt</code>
+      (include <code>pytest</code>, <code>pytest-asyncio</code>, <code>respx</code> peste <code>requirements.txt</code>):
+    </p>
+    <div class="d-code-block">
+      <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+      <pre>source venv/bin/activate
+pip install -r requirements-dev.txt</pre>
+    </div>
+
+    <!-- Rulare -->
+    <h6 style="font-weight:700;margin-top:1.5rem"><i class="bi bi-play-circle me-1"></i>2. Rulare</h6>
+    <div class="d-code-block">
+      <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+      <pre># toata suita (configurarea e citita din pytest.ini)
+pytest
+
+# un singur fisier
+pytest tests/test_utils.py
+
+# o singura clasa / un singur test
+pytest tests/test_api.py::TestUsers
+pytest tests/test_api.py::TestUsers::test_email_duplicat_da_400
+
+# verbose + opreste la primul esec
+pytest -v -x
+
+# filtreaza dupa nume (toate testele de cooldown)
+pytest -k cooldown</pre>
+    </div>
+    <p style="margin-top:.75rem">Rezultat asteptat:</p>
+    <div class="d-response-box">105 passed in ~4s</div>
+
+    <div class="alert alert-info mt-3" style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:6px;padding:.7rem 1rem;font-size:.86rem;margin-top:1rem">
+      <i class="bi bi-info-circle me-1"></i>
+      Daca <code>pytest</code> nu e in PATH (mediul virtual neactivat), ruleaza prin interpretorul din venv:
+      <code>./venv/bin/python -m pytest</code>.
+    </div>
+
+    <!-- Nivel 1 detaliu -->
+    <h6 style="font-weight:700;margin-top:1.5rem"><i class="bi bi-1-circle me-1"></i>Nivel 1 — teste unitare (<code>test_utils.py</code>)</h6>
+    <p>
+      Acopera functiile pure, deci nu necesita nicio infrastructura: primesc un input si se verifica
+      (<code>assert</code>) iesirea. Sunt cele mai ieftine teste si prind regresiile tacute in zonele fragile
+      (regex de watermark, ordinea formatelor de data, logica de retry).
+    </p>
+    <table class="d-table" style="margin-bottom:1rem">
+      <thead><tr><th>Functie testata</th><th>Exemple de cazuri</th></tr></thead>
+      <tbody>
+        <tr><td><code>parse_date</code></td><td>cele 5 formate (ISO cu/fara ora, data, an-luna, an), gol/None, format invalid, taiere dupa lungime</td></tr>
+        <tr><td><code>strip_watermarks</code></td><td>watermark IEEE eliminat, case-insensitive, text curat neschimbat, None</td></tr>
+        <tr><td><code>domain</code> / <code>is_academic</code></td><td>extragere domeniu, subdomenii, respinge potriviri partiale (<code>notarxiv.org</code> ≠ <code>arxiv.org</code>)</td></tr>
+        <tr><td><code>looks_like_person_name</code></td><td>nume valide cu diacritice romanesti, respinge lowercase / cifre / un singur cuvant</td></tr>
+        <tr><td><code>author_in_result</code></td><td>prenume+nume in orice ordine, <code>authors</code> ca lista, respinge subsiruri (<code>Ion</code> ≠ <code>Ionete</code>)</td></tr>
+        <tr><td><code>retry_async</code></td><td>succes din prima, reusita dupa esecuri, epuizare incercari, backoff exponential plafonat</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-bottom:.5rem">Exemplu de test:</p>
+    <div class="d-code-block">
+      <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+      <pre>def test_parse_date_doar_an():
+    assert parse_date("2024") == datetime(2024, 1, 1)
+
+def test_strip_watermark_text_curat_ramane_neschimbat():
+    assert strip_watermarks("Text normal.") == "Text normal."</pre>
+    </div>
+
+    <!-- Nivel 2 detaliu -->
+    <h6 style="font-weight:700;margin-top:1.5rem"><i class="bi bi-2-circle me-1"></i>Nivel 2 — endpoint-uri (<code>test_api.py</code>)</h6>
+    <p>
+      Pornesc aplicatia FastAPI in memorie cu <code>TestClient</code> si o baza <strong>SQLite in-memory</strong>
+      izolata per test. Fixtura din <code>tests/conftest.py</code> suprascrie dependenta <code>get_db</code>, deci
+      testele nu ating <code>agent_articole.db</code> real. <code>lifespan</code> NU porneste — scheduler-ul real
+      nu ruleaza in timpul testelor.
+    </p>
+    <p>
+      Fluxul de cautare e testat cu providerul <strong>mock-uit</strong> (<code>monkeypatch</code> pe
+      <code>searches._dispatch_search</code>), deci nu se face niciun apel extern. Se verifica:
+    </p>
+    <ul style="font-size:.9rem">
+      <li>CRUD utilizatori / topicuri (creare → <span class="d-badge green">201</span>, listare, update, delete)</li>
+      <li>validari Pydantic → <span class="d-badge orange">422</span> (topic fara keywords <em>si</em> fara user_question, provider invalid, <code>days_back</code> in afara limitelor)</li>
+      <li>email duplicat → <span class="d-badge red">400</span>, resursa inexistenta → <span class="d-badge red">404</span></li>
+      <li>relatia topic ↔ user (adaugare idempotenta, scoatere)</li>
+      <li>flux run: salveaza rezultatele, al doilea trigger imediat → <span class="d-badge red">429</span> (cooldown)</li>
+    </ul>
+
+    <h6 style="font-weight:700;margin-top:1.5rem"><i class="bi bi-2-circle me-1"></i>Nivel 2 — provideri cu <code>respx</code> (<code>test_providers.py</code>)</h6>
+    <p>
+      <code>respx</code> intercepteaza apelurile HTTP catre <code>api.openalex.org</code> / <code>api.crossref.org</code>
+      si le intoarce un raspuns fix. Astfel se testeaza <strong>logica noastra</strong> de parsare/filtrare/deduplicare —
+      determinist, fara internet, fara cost. Cazuri acoperite: parsare work OpenAlex (URL DOI, abstract reconstruit din
+      inverted index), filtrare dupa <code>cutoff</code>, deduplicare titlu intre OA si CR, filtrare autor nepotrivit,
+      si reziliența cand OpenAlex pica (500) — providerul continua cu CrossRef.
+    </p>
+    <p style="margin-bottom:.5rem">Schelet al unui test cu mock HTTP:</p>
+    <div class="d-code-block">
+      <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+      <pre>@respx.mock
+@pytest.mark.asyncio
+async def test_parseaza_un_work_openalex():
+    respx.get(url__regex=r"^https://api\.openalex\.org/authors").mock(
+        return_value=httpx.Response(200, json={"results": [
+            {"id": "https://openalex.org/A123", "display_name": "Simona Raboaca"}]}))
+    respx.get(url__regex=r"^https://api\.openalex\.org/works").mock(
+        return_value=httpx.Response(200, json={"results": [...], "meta": {"next_cursor": None}}))
+    respx.get(url__regex=r"^https://api\.crossref\.org/works").mock(
+        return_value=httpx.Response(200, json={"message": {"items": [], "next-cursor": None}}))
+
+    out = await search_articles("Simona Răboacă", days_back=3650, max_works=10)
+    assert out[0]["url"] == "https://doi.org/10.1234/abc"</pre>
+    </div>
+
+    <!-- Adaugare teste noi -->
+    <h6 style="font-weight:700;margin-top:1.5rem"><i class="bi bi-plus-circle me-1"></i>Cum adaugi teste noi</h6>
+    <ol class="d-steps">
+      <li>Pune fisierul in <code>tests/</code>, cu nume <code>test_*.py</code> (altfel <code>pytest</code> nu il colecteaza).</li>
+      <li>Pentru endpoint-uri: foloseste fixtura <code>client</code> din <code>conftest.py</code> — primesti deja un TestClient cu DB izolata.</li>
+      <li>Pentru cod <code>async</code>: marcheaza testul cu <code>@pytest.mark.asyncio</code> (modul e <code>strict</code> in <code>pytest.ini</code>).</li>
+      <li>Pentru orice apel HTTP extern: mock-uieste-l cu <code>respx</code> — testele NU trebuie sa atinga reteaua.</li>
+      <li>Ruleaza <code>pytest -v</code> si verifica ca totul e verde inainte de commit.</li>
+    </ol>
+
+    <div class="alert alert-warning mt-3" style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:.75rem 1rem;font-size:.88rem;margin-top:1rem">
+      <i class="bi bi-exclamation-triangle me-1"></i>
+      <strong>Regula de aur:</strong> un test nu trebuie sa depinda de internet, de chei API, de baza de date reala
+      sau de ora curenta intr-un mod fragil. Daca un test ar lovi un serviciu extern, mock-uieste-l —
+      altfel devine lent si „flaky" (pica aleatoriu).
     </div>
 
   </div>
