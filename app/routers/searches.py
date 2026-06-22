@@ -14,8 +14,9 @@ from app.database import get_db
 from app import models, schemas
 from app.config import settings
 
-# Rate limiting: timp (Unix) al ultimului trigger manual per topic_id
-_topic_last_trigger: dict[int, float] = {}
+# Rate limiting: cooldown intre declansari manuale per topic. Persistat in
+# coloana Topic.last_triggered_at => supravietuieste restartului (altfel un
+# restart ar reseta cooldown-ul si ar permite relansari imediate la rand).
 TRIGGER_COOLDOWN = 60  # secunde
 
 # Preturi Anthropic per 1M tokeni (input, output) in USD.
@@ -308,15 +309,18 @@ async def trigger_search(topic_id: int, db: Session = Depends(get_db)):
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    now = time.time()
-    last = _topic_last_trigger.get(topic_id, 0)
-    if now - last < TRIGGER_COOLDOWN:
-        remaining = int(TRIGGER_COOLDOWN - (now - last))
-        raise HTTPException(
-            status_code=429,
-            detail=f"Cooldown activ. Mai așteaptă {remaining}s înainte de a relansa căutarea."
-        )
-    _topic_last_trigger[topic_id] = now
+    now = datetime.now()
+    last = topic.last_triggered_at
+    if last is not None:
+        elapsed = (now - last).total_seconds()
+        if elapsed < TRIGGER_COOLDOWN:
+            remaining = int(TRIGGER_COOLDOWN - elapsed)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Cooldown activ. Mai așteaptă {remaining}s înainte de a relansa căutarea."
+            )
+    topic.last_triggered_at = now
+    db.commit()
 
     run = await _run_search(topic_id, db)
     db.refresh(run)

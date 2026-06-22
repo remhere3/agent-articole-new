@@ -181,7 +181,7 @@ body {
         <tr><td><strong>Scheduler automat</strong></td><td>APScheduler verifica la 15 min si ruleaza topicurile scadente; timeout configurabil per topic</td></tr>
         <tr><td><strong>Toate rezultatele per run</strong></td><td>Fiecare cautare salveaza toate articolele gasite; filtrarea se face doar dupa data publicarii (<code>days_back</code>), nu dupa rularile anterioare</td></tr>
         <tr><td><strong>Cost estimat</strong></td><td>Fiecare run Anthropic calculeaza costul in USD bazat pe tokens input/output ($3/$15 per million)</td></tr>
-        <tr><td><strong>Rate limiting</strong></td><td>Trigger manual: cooldown 60s per topic, returneaza HTTP 429 daca e prea devreme</td></tr>
+        <tr><td><strong>Rate limiting</strong></td><td>Trigger manual: cooldown 60s per topic, returneaza HTTP 429 daca e prea devreme. Persistat in <code>topics.last_triggered_at</code> — supravietuieste restartului aplicatiei</td></tr>
         <tr><td><strong>Reincercari automate</strong></td><td>Apelurile externe Tavily / Ollama / SearXNG se reincearca cu backoff exponential (3×, 2s→4s→8s) la erori tranzitorii (timeout, conexiune, HTTP 429/5xx)</td></tr>
         <tr><td><strong>Validare input</strong></td><td>Limite de lungime pe campurile care intra in prompt (<code>name</code> ≤ 200, <code>keywords</code> ≤ 1000, <code>user_question</code> ≤ 2000) — reduce suprafata de prompt injection si overflow de context</td></tr>
         <tr><td><strong>Export articole</strong></td><td><code>GET /api/searches/results/export?format=csv|json</code> — fara limita artificiala</td></tr>

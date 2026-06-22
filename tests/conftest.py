@@ -47,9 +47,8 @@ def client(db_engine):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    # Cooldown-ul de trigger e stare globala in modul — il resetam intre teste.
-    from app.routers import searches
-    searches._topic_last_trigger.clear()
+    # Cooldown-ul de trigger e acum persistat in Topic.last_triggered_at, deci
+    # se izoleaza natural intre teste (fiecare test are un DB in-memory propriu).
 
     yield TestClient(app)
 

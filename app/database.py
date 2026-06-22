@@ -44,6 +44,7 @@ def _ensure_columns():
         ("topics",       "timeout_seconds",     "INTEGER DEFAULT 300"),
         ("topics",       "periodicity_hours",    "REAL DEFAULT 24.0"),
         ("topics",       "user_question",        "TEXT"),
+        ("topics",       "last_triggered_at",    "DATETIME"),
         ("search_runs",  "tokens_input",         "INTEGER"),
         ("search_runs",  "tokens_output",        "INTEGER"),
         ("search_runs",  "api_calls",            "INTEGER"),

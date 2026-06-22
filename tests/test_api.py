@@ -177,6 +177,25 @@ class TestSearchRun:
         assert r.status_code == 429
         assert "cooldown" in r.json()["detail"].lower()
 
+    def test_cooldown_persista_intre_restarturi(self, client, db_engine, fake_provider):
+        """Cooldown-ul e citit din Topic.last_triggered_at (persistat), nu dintr-o
+        stare in-memory: o valoare recenta in DB — ca dupa un restart — blocheaza
+        trigger-ul, fara sa fi rulat vreun trigger in acest proces."""
+        from datetime import datetime
+        from sqlalchemy.orm import sessionmaker
+        from app import models
+
+        t = _make_topic(client)
+        Session = sessionmaker(bind=db_engine)
+        s = Session()
+        s.get(models.Topic, t["id"]).last_triggered_at = datetime.now()
+        s.commit()
+        s.close()
+
+        r = client.post(f"/api/searches/run/{t['id']}")
+        assert r.status_code == 429
+        assert "cooldown" in r.json()["detail"].lower()
+
     def test_run_pe_topic_inexistent_da_404(self, client, fake_provider):
         assert client.post("/api/searches/run/9999").status_code == 404
 

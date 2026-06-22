@@ -42,6 +42,7 @@ class Topic(Base):
     send_email = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_run_at = Column(DateTime(timezone=True), nullable=True)
+    last_triggered_at = Column(DateTime(timezone=True), nullable=True)  # ultimul trigger manual (cooldown persistent intre restarturi)
 
     users = relationship("User", secondary=topic_user, back_populates="topics")
     results = relationship("SearchResult", back_populates="topic", cascade="all, delete-orphan")
