@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.database import init_db
-from app.scheduler import start_scheduler, stop_scheduler
+from app.scheduler import start_scheduler, stop_scheduler, mark_interrupted_runs
 from app.routers import users, topics, searches
 from app.config import settings as app_settings
 from app.log_stream import install_handler, log_event_generator
@@ -44,6 +44,7 @@ async def lifespan(app: FastAPI):
     start_scheduler()
     yield
     stop_scheduler()
+    mark_interrupted_runs()  # inchide rularile ramase 'running' la oprire
 
 
 app = FastAPI(
@@ -133,3 +134,67 @@ async def status(db: Session = Depends(get_db)):
         "last_run_at": last_run_at,
         "last_run_status": last_run.status if last_run else None,
     }
+
+
+@app.get("/api/metrics")
+async def metrics(db: Session = Depends(get_db)):
+    """Observabilitate: agregari per provider — rulari, succese/esecuri/intrerupte,
+    durata medie, rezultate, tokeni si cost estimat. Plus un total general.
+
+    Agregarea se face in Python (portabil intre baze de date); la scara acestei
+    aplicatii numarul de rulari e mic, deci e acceptabil.
+    """
+    from collections import defaultdict
+    from app import models
+
+    rows = db.query(
+        models.SearchRun.provider,
+        models.SearchRun.status,
+        models.SearchRun.started_at,
+        models.SearchRun.finished_at,
+        models.SearchRun.results_count,
+        models.SearchRun.tokens_input,
+        models.SearchRun.tokens_output,
+        models.SearchRun.api_calls,
+        models.SearchRun.estimated_cost_usd,
+    ).all()
+
+    def _blank():
+        return {
+            "runs": 0, "success": 0, "error": 0, "interrupted": 0, "running": 0,
+            "total_results": 0, "tokens_input": 0, "tokens_output": 0,
+            "api_calls": 0, "estimated_cost_usd": 0.0,
+            "_dur_sum": 0.0, "_dur_n": 0,
+        }
+
+    agg = defaultdict(_blank)
+
+    def _accumulate(b, r):
+        b["runs"] += 1
+        if r.status in ("success", "error", "interrupted", "running"):
+            b[r.status] += 1
+        b["total_results"] += r.results_count or 0
+        b["tokens_input"] += r.tokens_input or 0
+        b["tokens_output"] += r.tokens_output or 0
+        b["api_calls"] += r.api_calls or 0
+        b["estimated_cost_usd"] += r.estimated_cost_usd or 0.0
+        if r.started_at and r.finished_at:
+            b["_dur_sum"] += (r.finished_at - r.started_at).total_seconds()
+            b["_dur_n"] += 1
+
+    for r in rows:
+        _accumulate(agg[r.provider or "necunoscut"], r)
+        _accumulate(agg["_total"], r)
+
+    def _finalize(b):
+        runs = b["runs"]
+        dur_n = b.pop("_dur_n")
+        dur_sum = b.pop("_dur_sum")
+        b["success_rate"] = round(b["success"] / runs, 3) if runs else None
+        b["avg_duration_s"] = round(dur_sum / dur_n, 2) if dur_n else None
+        b["estimated_cost_usd"] = round(b["estimated_cost_usd"], 6)
+        return b
+
+    totals = _finalize(agg.pop("_total", _blank()))  # _blank daca nu exista nicio rulare
+    providers = {name: _finalize(b) for name, b in sorted(agg.items())}
+    return {"providers": providers, "totals": totals}

@@ -203,6 +203,14 @@ Apelurile catre API-urile externe au doua straturi de protectie:
 
   Un raspuns valid cu 0 rezultate **nu** e esec — doar erorile de infra deschid circuitul. Providerii care isi inghiteau erorile (Tavily/SearXNG/Author) arunca acum `ProviderDownError` cand serviciul e clar indisponibil, ca breaker-ul sa le numere. Starea e in memorie (sigura datorita single-process-ului) si se reseteaza la restart.
 
+### Shutdown gratios
+
+La oprire (deploy, restart, SIGTERM), `mark_interrupted_runs()` (`app/scheduler.py`, apelat in `lifespan` dupa `stop_scheduler`) marcheaza orice rulare ramasa in status `running` ca `interrupted` (cu `finished_at` + mesaj). Altfel o cautare intrerupta la mijloc ar ramane blocata pe veci ca `running` si ar parea activa la repornire. E sigur sa maturam toate rularile `running` fiindca deployment-ul e single-process (SQLite + scheduler singleton).
+
+### Observabilitate — `GET /api/metrics`
+
+Agregari per provider plus un total general: numar de `runs`, defalcare pe status (`success` / `error` / `interrupted` / `running`), `success_rate`, durata medie (`avg_duration_s`), `total_results`, tokeni si `estimated_cost_usd`. Agregarea se face in Python (portabil), potrivit la scara aplicatiei.
+
 ### Migrari de schema
 
 Aplicatia **nu** foloseste Alembic, desi e in dependente. Schema evolueaza prin `Base.metadata.create_all` + un pas idempotent `_ensure_columns()` (`app/database.py`) care adauga coloane noi cu `ALTER TABLE ADD COLUMN` daca lipsesc.

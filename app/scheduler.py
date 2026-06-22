@@ -76,6 +76,40 @@ def stop_scheduler():
     logger.info("Scheduler stopped")
 
 
+def mark_interrupted_runs() -> int:
+    """La oprire, marcheaza rularile ramase 'running' ca 'interrupted'.
+
+    Un proces oprit la mijlocul unei cautari (deploy, restart, SIGTERM) ar lasa
+    altfel rularea blocata pe veci in status 'running' — ar parea activa la
+    repornire. O inchidem explicit. Deployment-ul e single-process (SQLite +
+    scheduler singleton), deci e sigur sa maturam toate rularile 'running'.
+    Intoarce numarul de rulari marcate.
+    """
+    from app.database import SessionLocal
+    from app import models
+
+    db = SessionLocal()
+    try:
+        runs = (
+            db.query(models.SearchRun)
+            .filter(models.SearchRun.status == "running")
+            .all()
+        )
+        for run in runs:
+            run.status = "interrupted"
+            run.error_message = "Proces oprit in timpul rularii"
+            run.finished_at = datetime.now()
+        if runs:
+            db.commit()
+            logger.info("Marcat %d rulari 'running' ca 'interrupted' la oprire", len(runs))
+        return len(runs)
+    except Exception as e:
+        logger.error(f"Failed to mark interrupted runs: {e}")
+        return 0
+    finally:
+        db.close()
+
+
 def _mark_timeout(topic_id: int, timeout: int):
     """Marcheaza run-ul 'running' al unui topic ca eroare de timeout.
 

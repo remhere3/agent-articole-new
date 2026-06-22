@@ -1271,7 +1271,11 @@ httpx.post(f"{BASE}/topics/1/users/2")</pre>
       <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/results/export</span></span>
       <span class="d-endpoint"><span class="d-method delete">DELETE</span><span class="d-path">/api/searches/results/{id}</span></span>
       <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/searches/validate-provider/{provider}</span></span>
+      <span class="d-endpoint"><span class="d-method get">GET</span><span class="d-path">/api/metrics</span></span>
     </p>
+    <p><code>GET /api/metrics</code> — observabilitate: agregari per provider (plus total general) cu numarul de rulari, defalcare pe status
+      (<code>success</code> / <code>error</code> / <code>interrupted</code> / <code>running</code>), <code>success_rate</code>,
+      durata medie (<code>avg_duration_s</code>), <code>total_results</code>, tokeni si <code>estimated_cost_usd</code>.</p>
     <p>Parametri query: <code>topic_id</code>, <code>limit</code> (default 50/100) &nbsp;·&nbsp;
       <code>DELETE /runs</code> accepta body JSON <code>{"ids": [1, 2, 3]}</code> — stergere in bulk (articolele aferente sunt sterse automat)</p>
     <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.2);border-left:3px solid #c45c00;border-radius:.4rem;padding:.6rem .9rem;font-size:.84rem;margin-bottom:.75rem;">

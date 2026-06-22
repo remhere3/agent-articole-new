@@ -45,6 +45,18 @@ class TestParseDate:
     def test_format_nerecunoscut_da_none(self, val):
         assert _utils.parse_date(val) is None
 
+    def test_format_nerecunoscut_logheaza_debug_cu_valoarea_bruta(self, caplog):
+        import logging
+        with caplog.at_level(logging.DEBUG, logger="app.services._utils"):
+            assert _utils.parse_date("data necunoscuta") is None
+        assert any("data necunoscuta" in r.message for r in caplog.records)
+
+    def test_input_gol_nu_logheaza(self, caplog):
+        import logging
+        with caplog.at_level(logging.DEBUG, logger="app.services._utils"):
+            assert _utils.parse_date("") is None
+        assert caplog.records == []
+
     def test_accepta_input_non_string(self):
         # functia face str(s) intern -> un int de an trebuie sa mearga
         assert _utils.parse_date(2024) == datetime(2024, 1, 1)

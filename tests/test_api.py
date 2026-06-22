@@ -240,3 +240,62 @@ class TestMisc:
         body = client.get("/api/status").json()
         assert body["active_topics"] >= 1
         assert "version" in body
+
+
+# ===========================================================================
+# Metrics (observabilitate per provider)
+# ===========================================================================
+class TestMetrics:
+    def _seed_runs(self, client, db_engine):
+        from datetime import datetime, timedelta
+        from sqlalchemy.orm import sessionmaker
+        from app import models
+
+        t = _make_topic(client)
+        Session = sessionmaker(bind=db_engine)
+        s = Session()
+        base = datetime(2026, 1, 1, 12, 0, 0)
+        s.add_all([
+            # anthropic: 1 success (10s, 5 rez), 1 error
+            models.SearchRun(topic_id=t["id"], provider="anthropic", status="success",
+                             results_count=5, started_at=base, finished_at=base + timedelta(seconds=10),
+                             tokens_input=100, tokens_output=200, estimated_cost_usd=0.5),
+            models.SearchRun(topic_id=t["id"], provider="anthropic", status="error",
+                             results_count=0, started_at=base, finished_at=base + timedelta(seconds=2)),
+            # tavily: 1 interrupted (fara finished -> nu intra in durata)
+            models.SearchRun(topic_id=t["id"], provider="tavily", status="interrupted",
+                             results_count=0, started_at=base),
+        ])
+        s.commit()
+        s.close()
+        return t
+
+    def test_metrics_agrega_per_provider_si_total(self, client, db_engine):
+        self._seed_runs(client, db_engine)
+        body = client.get("/api/metrics").json()
+
+        prov = body["providers"]
+        assert prov["anthropic"]["runs"] == 2
+        assert prov["anthropic"]["success"] == 1
+        assert prov["anthropic"]["error"] == 1
+        assert prov["anthropic"]["total_results"] == 5
+        assert prov["anthropic"]["success_rate"] == 0.5
+        # durata medie peste cele 2 rulari cu finished_at: (10 + 2) / 2
+        assert prov["anthropic"]["avg_duration_s"] == 6.0
+        assert prov["anthropic"]["estimated_cost_usd"] == 0.5
+
+        assert prov["tavily"]["interrupted"] == 1
+        # nicio rulare tavily cu finished_at -> avg None
+        assert prov["tavily"]["avg_duration_s"] is None
+
+        totals = body["totals"]
+        assert totals["runs"] == 3
+        assert totals["success"] == 1
+        assert totals["total_results"] == 5
+
+    def test_metrics_gol_intoarce_structura_valida(self, client):
+        body = client.get("/api/metrics").json()
+        assert body["providers"] == {}
+        assert body["totals"]["runs"] == 0
+        assert body["totals"]["success_rate"] is None
+        assert body["totals"]["avg_duration_s"] is None

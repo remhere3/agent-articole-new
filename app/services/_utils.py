@@ -57,6 +57,9 @@ def parse_date(s) -> Optional[datetime]:
             return datetime.strptime(text[:length], fmt)
         except ValueError:
             continue
+    # Esec real (input ne-gol care nu se potriveste niciunui format) — logam
+    # valoarea bruta la debug ca sa nu fie un esec complet tacut.
+    logger.debug("parse_date: format nerecunoscut, intorc None pentru %r", text)
     return None
 
 
