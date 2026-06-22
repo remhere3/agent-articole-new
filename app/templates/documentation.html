@@ -773,8 +773,8 @@ curl -s -X POST http://localhost:8002/api/searches/run/5</pre>
           </tr>
           <tr>
             <td>3–6 cuvinte cheie separate prin spații</td>
-            <td><code>CRISPR gene editing cancer therapy</code></td>
-            <td><code>CRISPR, gene editing, cancer treatment methods, 2025</code></td>
+            <td><code>CRISPR gene editing crop yield</code></td>
+            <td><code>CRISPR, gene editing, crop improvement methods, 2025</code></td>
           </tr>
           <tr>
             <td>Include acronimele și numele complet</td>
@@ -1464,9 +1464,9 @@ httpx.delete(f"{BASE}/users/1")</pre>
 curl -s -X POST $BASE/topics \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Oncologie 2026",
-    "user_question": "Da-mi articolele din reviste de specialitate despre imunoterapie in cancer",
-    "keywords": "immunotherapy cancer",
+    "name": "Hidrogen verde 2026",
+    "user_question": "Da-mi articolele din reviste de specialitate despre stocarea energiei cu hidrogen verde",
+    "keywords": "green hydrogen energy storage",
     "days_back": 7,
     "periodicity_hours": 24,
     "timeout_seconds": 300,
@@ -1507,9 +1507,9 @@ BASE = "http://localhost:8002/api"
 
 # Creeaza topic cu intrebare libera
 topic = httpx.post(f"{BASE}/topics", json={
-    "name": "Oncologie 2026",
-    "user_question": "Da-mi articolele din reviste de specialitate despre imunoterapie in cancer",
-    "keywords": "immunotherapy cancer",
+    "name": "Hidrogen verde 2026",
+    "user_question": "Da-mi articolele din reviste de specialitate despre stocarea energiei cu hidrogen verde",
+    "keywords": "green hydrogen energy storage",
     "days_back": 7,
     "periodicity_hours": 24,
     "timeout_seconds": 300,
