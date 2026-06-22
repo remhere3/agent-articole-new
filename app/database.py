@@ -28,7 +28,17 @@ def init_db():
 
 
 def _ensure_columns():
-    """Adauga coloanele noi daca nu exista (idempotent, fara Alembic)."""
+    """Adauga coloanele noi daca nu exista (idempotent, fara Alembic).
+
+    Decizie deliberata: NU folosim Alembic. Pe SQLite single-instance, unde
+    evolutia schemei se reduce la adaugare de coloane, `create_all` +
+    `ALTER TABLE ADD COLUMN` e suficient. Limitari acceptate constient: nu
+    gestioneaza redenumiri/stergeri de coloane, schimbari de tip/constrangeri,
+    backfill sau downgrade; o modificare a *definitiei* unei coloane existente
+    nu e detectata aici. Daca migram la Postgres sau apar astfel de nevoi,
+    reintroducem Alembic (e deja in dependente). Vezi README, sectiunea
+    "Migrari de schema".
+    """
     from sqlalchemy import text
     migrations = [
         ("topics",       "timeout_seconds",     "INTEGER DEFAULT 300"),

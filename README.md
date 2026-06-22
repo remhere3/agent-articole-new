@@ -181,10 +181,33 @@ sudo systemctl enable agent-articole
 
 Aplicatia foloseste **APScheduler** (pornit in `lifespan`) si **SSE log streaming** (stare in memorie). Cu mai multi workers:
 
-- Fiecare worker porneste propriul scheduler → joburile se executa de N ori simultan
 - Log stream-ul SSE din UI afiseaza doar log-urile unui singur worker
 
 Un singur process async (FastAPI + AsyncIOScheduler) este suficient — concurenta e gestionata de event loop, nu de procese multiple.
+
+**Protectie la rulare:** chiar daca pornesti din greseala mai multi workers pe acelasi host, scheduler-ul foloseste un **flock de singleton** (`scheduler_lock_path`, implicit `/tmp/agent_articole_scheduler.lock`). Doar primul proces care obtine lock-ul porneste joburile periodice; ceilalti ies tacut. Astfel joburile **nu** se mai executa de N ori. (Lock-ul e per-host, ceea ce se potriveste cu SQLite local.)
+
+### Reziliență la servicii externe
+
+Apelurile catre API-urile externe au doua straturi de protectie:
+
+- **Retry cu backoff** (`retry_async` in `app/services/_utils.py`) — reincearca erorile tranzitorii (timeout, conexiune, 429, 5xx). Anthropic foloseste backoff lung (60s, 120s) cu retry-ul intern al SDK-ului dezactivat; ceilalti, backoff exponential scurt.
+- **Circuit breaker per-provider** (`app/services/_circuit.py`) — dupa N esecuri *de infrastructura* consecutive, circuitul se DESCHIDE: apelurile urmatoare catre acel provider esueaza instant (fail-fast) fara sa mai loveasca serviciul picat. Dupa cooldown trece in *half-open* (un apel de proba); succes → inchis, esec → redeschis cu cooldown dublat (plafonat). Astfel un API extern jos nu mai e lovit prin tot ciclul de retry la fiecare topic, la fiecare rulare.
+
+  | Provider | Prag esecuri | Cooldown | De ce |
+  |----------|:---:|:---:|-------|
+  | anthropic | 2 | 300s | fiecare esec = pana la ~180s (retry lung) |
+  | tavily | 3 | 180s | platit, apel rapid |
+  | searxng | 3 | 120s | local, proba ieftina |
+  | author | 4 | 300s | OpenAlex+CrossRef gratuite, mai instabile |
+
+  Un raspuns valid cu 0 rezultate **nu** e esec — doar erorile de infra deschid circuitul. Providerii care isi inghiteau erorile (Tavily/SearXNG/Author) arunca acum `ProviderDownError` cand serviciul e clar indisponibil, ca breaker-ul sa le numere. Starea e in memorie (sigura datorita single-process-ului) si se reseteaza la restart.
+
+### Migrari de schema
+
+Aplicatia **nu** foloseste Alembic, desi e in dependente. Schema evolueaza prin `Base.metadata.create_all` + un pas idempotent `_ensure_columns()` (`app/database.py`) care adauga coloane noi cu `ALTER TABLE ADD COLUMN` daca lipsesc.
+
+Decizie deliberata pentru SQLite single-instance, unde evolutia se reduce la adaugare de coloane. Limitari acceptate constient: nu gestioneaza redenumiri/stergeri de coloane, schimbari de tip/constrangeri, backfill sau downgrade; o modificare a *definitiei* unei coloane existente nu e detectata. Daca migram la Postgres sau apar astfel de nevoi → reintroducem Alembic.
 
 ### Comenzi utile
 
@@ -282,6 +305,7 @@ Vezi `docs/api_examples.md` sau Swagger la `http://localhost:8002/docs`.
 | `SMTP_PORT` | Port SMTP | `587` |
 | `SMTP_USER` | User SMTP | — |
 | `SMTP_PASSWORD` | Parola SMTP | — |
+| `SMTP_TIMEOUT` | Timeout (s) pe operatia SMTP; server blocat nu mai tine jobul ostatic | `30.0` |
 | `EMAIL_FROM` | Expeditor afisat in email | `Agent Articole <noreply@example.com>` |
 | `APP_SECRET_KEY` | Cheie secreta aplicatie (schimba in productie!) | `dev-secret-change-in-production` |
 | `APP_PORT` | Portul serverului | `8002` |

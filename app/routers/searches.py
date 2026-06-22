@@ -223,6 +223,28 @@ def _build_telemetry(topic: models.Topic, articles: list, elapsed_s: float) -> d
 
 
 async def _dispatch_search(topic: models.Topic, telemetry: dict) -> list:
+    """Executa cautarea prin circuit breaker-ul providerului.
+
+    Daca circuitul e deschis (serviciul extern e jos), ridica CircuitOpenError
+    instant — fara sa mai loveasca API-ul picat prin tot ciclul de retry. Doar
+    esecurile de infrastructura (is_infra_failure) deschid circuitul; un raspuns
+    valid cu 0 rezultate e considerat succes.
+    """
+    from app.services._circuit import get_breaker, is_infra_failure
+
+    breaker = get_breaker(topic.provider)
+    breaker.before()  # CircuitOpenError daca e deschis
+    try:
+        result = await _call_provider(topic, telemetry)
+    except Exception as e:
+        if is_infra_failure(e):
+            breaker.record_failure()
+        raise
+    breaker.record_success()
+    return result
+
+
+async def _call_provider(topic: models.Topic, telemetry: dict) -> list:
     """Alege providerul corect si executa cautarea."""
     query = topic.user_question or topic.keywords
 

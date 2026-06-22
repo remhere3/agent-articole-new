@@ -24,6 +24,7 @@ from app.services._utils import (
     retry_async,
     strip_watermarks as _strip_watermarks,
 )
+from app.services._circuit import ProviderDownError, is_infra_failure
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +168,10 @@ async def _searxng_search(
         return results[:max_results]
     except Exception as e:
         logger.warning(f"[SearXNG] Eroare cautare: {describe_exc(e)}")
+        # Esecul infra il propagam: apelantul numara cate query-uri pica, ca sa
+        # decida daca SearXNG e jos (pentru circuit breaker). Restul -> [].
+        if is_infra_failure(e):
+            raise
         return []
 
 
@@ -194,6 +199,8 @@ async def search_articles(
     seen: set = set()
     collected: List[Dict] = []
     searxng_calls = 0
+    searxng_ok = 0
+    searxng_infra_fail = 0
     current_year = str(datetime.now().year)
 
     # Imparte keywords dupa virgula si construieste query-uri scurte cu anul curent
@@ -210,12 +217,18 @@ async def search_articles(
         logger.info(f"[SearXNG] Query {qi}/{len(queries)}: '{q}'")
         t0 = time.perf_counter()
 
-        results = await _searxng_search(
-            base_url=searxng_base_url,
-            query=q,
-            categories="science",
-            max_results=20,
-        )
+        try:
+            results = await _searxng_search(
+                base_url=searxng_base_url,
+                query=q,
+                categories="science",
+                max_results=20,
+            )
+            searxng_ok += 1
+        except Exception as e:
+            if is_infra_failure(e):
+                searxng_infra_fail += 1
+            results = []
         searxng_calls += 1
         elapsed = time.perf_counter() - t0
 
@@ -227,6 +240,12 @@ async def search_articles(
                 collected.append(item)
                 n_new += 1
         logger.info(f"[SearXNG] Query {qi}: {len(results)} rezultate in {elapsed:.1f}s | {n_new} noi")
+
+    # Toate query-urile SearXNG au picat infra (zero reusite) -> motorul e jos.
+    # Aruncam, ca circuit breaker-ul sa numere esecul (Ollama e local, nu-l tratam
+    # ca poarta pentru breaker — gateway-ul providerului 'searxng' e SearXNG).
+    if searxng_ok == 0 and searxng_infra_fail > 0:
+        raise ProviderDownError("SearXNG inaccesibil: toate query-urile au esuat infra")
 
     if telemetry is not None:
         telemetry["api_calls"] = searxng_calls

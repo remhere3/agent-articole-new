@@ -1539,13 +1539,28 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
         </tr>
         <tr>
           <td>18</td>
-          <td><strong>Reincercari cu backoff exponential</strong> — <code>retry_async()</code> + <code>is_retryable_http()</code> in <code>_utils.py</code>, aplicate pe apelurile externe la <span class="d-badge orange" style="font-size:.72rem">tavily</span> <span class="d-badge purple" style="font-size:.72rem">searxng</span>. 3 incercari, intarziere 2s→4s→8s (max 30s); reincearca doar erorile tranzitorii (timeout, conexiune, HTTP 429/5xx) si lasa sa treaca cele definitive (401/403/404)</td>
-          <td>Caderile temporare de retea / rate limit se recupereaza automat; o eroare definitiva esueaza rapid, fara reincercari inutile. Fallback-ul existent (<code>[]</code>) ramane dupa epuizarea incercarilor</td>
+          <td><strong>Reincercari cu backoff exponential — unificate pe toti providerii</strong> — <code>retry_async()</code> + <code>is_retryable_http()</code> in <code>_utils.py</code>, aplicate acum pe apelurile externe la toti cei 4 provideri: <span class="d-badge blue" style="font-size:.72rem">anthropic</span> <span class="d-badge orange" style="font-size:.72rem">tavily</span> <span class="d-badge purple" style="font-size:.72rem">searxng</span> <span class="d-badge" style="font-size:.72rem;background:#00897b22;color:#00897b">author</span>. Reincearca doar erorile tranzitorii (timeout, conexiune, HTTP 429/5xx), lasa sa treaca cele definitive (401/403/404). Anthropic foloseste backoff lung (60s→120s) cu retry-ul intern al SDK-ului dezactivat (<code>max_retries=0</code>) ca sa nu se compuna; <code>author</code> avea zero retry inainte</td>
+          <td>Caderile temporare de retea / rate limit se recupereaza automat la toti providerii; o eroare definitiva esueaza rapid. Inainte: Anthropic avea o bucla manuala paralela (si 5xx esua imediat), iar <code>author</code> pierdea tacut profilurile la un blip de retea</td>
         </tr>
         <tr>
           <td>19</td>
           <td><strong>Sesiuni DB per topic in scheduler</strong> — <code>orchestrate_searches()</code> deschide o sesiune scurta doar pentru selectarea topicurilor scadente, apoi o sesiune dedicata per topic; la timeout, <code>_mark_timeout()</code> foloseste o sesiune NOUA (cea a corutinei anulate de <code>asyncio.wait_for</code> ramane intr-o stare nedefinita)</td>
           <td>Durata scurta a conexiunilor + esecurile unui topic nu mai polueaza sesiunea celorlalte; marcarea timeout-ului nu mai opereaza pe o sesiune anulata la mijlocul unei operatii</td>
+        </tr>
+        <tr>
+          <td>20</td>
+          <td><strong>Scheduler single-process garantat (flock)</strong> — la pornire, <code>start_scheduler()</code> incearca un lock exclusiv ne-blocant (<code>fcntl.flock</code>) pe <code>SCHEDULER_LOCK_PATH</code>. Doar procesul care obtine lock-ul porneste scheduler-ul; ceilalti workers ies tacut</td>
+          <td>Chiar daca pornesti din greseala mai multi workers pe acelasi host, joburile periodice <strong>nu</strong> se mai executa de N ori (emailuri duplicate, cost dublat). Lock per-host, se potriveste cu SQLite local</td>
+        </tr>
+        <tr>
+          <td>21</td>
+          <td><strong>Circuit breaker per-provider</strong> — <code>app/services/_circuit.py</code> (stari CLOSED/OPEN/HALF&#8209;OPEN, cooldown exponential plafonat). Dupa N esecuri de infrastructura consecutive circuitul se deschide si apelurile esueaza instant (fail-fast); dupa cooldown un apel de proba decide redeschiderea sau inchiderea. Praguri/cooldown: <span class="d-badge blue" style="font-size:.72rem">anthropic</span> 2/300s · <span class="d-badge orange" style="font-size:.72rem">tavily</span> 3/180s · <span class="d-badge purple" style="font-size:.72rem">searxng</span> 3/120s · <span class="d-badge" style="font-size:.72rem;background:#00897b22;color:#00897b">author</span> 4/300s. Un raspuns valid cu 0 rezultate <strong>nu</strong> e esec; providerii care isi inghiteau erorile arunca acum <code>ProviderDownError</code> cand serviciul e clar jos</td>
+          <td>Un API extern picat nu mai e lovit prin tot ciclul de retry la fiecare topic, la fiecare rulare (pana la ~180s per topic Anthropic). Reduce timpul irosit si riscul de ban pe IP. Stare in memorie, sigura datorita scheduler-ului single-process</td>
+        </tr>
+        <tr>
+          <td>22</td>
+          <td><strong>Timeout explicit pe SMTP</strong> — <code>aiosmtplib.send(..., timeout=SMTP_TIMEOUT)</code> (default 30s, configurabil). Inainte se folosea default-ul implicit al librariei (60s); timeout-ul e prins separat si logat clar</td>
+          <td>Un server SMTP blocat nu mai tine jobul ostatic; trimiterea esueaza controlat (<code>False</code>), fara sa arunce</td>
         </tr>
       </tbody>
     </table>
@@ -1555,6 +1570,10 @@ httpx.delete(f"{BASE}/searches/runs", json={"ids": [3, 4, 5]})</pre>
       La fiecare pornire, <code>_ensure_columns()</code> verifica via <code>PRAGMA table_info</code> daca coloanele noi exista
       (<code>timeout_seconds</code>, <code>estimated_cost_usd</code>, <code>tokens_input</code>, <code>tokens_output</code>, <code>api_calls</code>)
       si le adauga daca lipsesc. Operatia e idempotenta si nu modifica date existente. Nu e nevoie de Alembic sau de actiuni manuale.
+      <br><br>
+      <em>Decizie deliberata (nu lipsa):</em> pe SQLite single-instance, unde evolutia schemei se reduce la adaugare de coloane, e suficient.
+      Limitari acceptate constient: nu gestioneaza redenumiri/stergeri de coloane, schimbari de tip/constrangeri, backfill sau downgrade.
+      Daca migram la Postgres sau apar astfel de nevoi, reintroducem Alembic (e deja in dependente).
     </div>
 
     <div style="background:rgba(0,0,0,.04);border:1px solid var(--d-border);border-left:3px solid #6b7280;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
@@ -1706,7 +1725,8 @@ c.close()</pre>
 SMTP_PORT=587
 SMTP_USER=adresa@gmail.com
 SMTP_PASSWORD=abcd efgh ijkl mnop   # parola de aplicatie (16 chars)
-EMAIL_FROM=Agent Articole &lt;adresa@gmail.com&gt;</pre>
+EMAIL_FROM=Agent Articole &lt;adresa@gmail.com&gt;
+SMTP_TIMEOUT=30.0                   # timeout (s) — server blocat nu tine jobul ostatic</pre>
     </div>
   </div>
 </div>
@@ -1820,10 +1840,12 @@ Provider: anthropic · Run #37</div>
         <tr><td><code>SMTP_PORT</code></td><td>587</td><td>Port SMTP</td></tr>
         <tr><td><code>SMTP_USER</code></td><td>—</td><td>Username SMTP</td></tr>
         <tr><td><code>SMTP_PASSWORD</code></td><td>—</td><td>Parola / App password</td></tr>
+        <tr><td><code>SMTP_TIMEOUT</code></td><td>30.0</td><td>Timeout (secunde) pe operatia SMTP; un server blocat nu mai tine jobul ostatic</td></tr>
         <tr><td><code>EMAIL_FROM</code></td><td>Agent Articole &lt;...&gt;</td><td>Expeditor afisat</td></tr>
         <tr><td><code>DATABASE_URL</code></td><td>sqlite:///./agent_articole.db</td><td>URL baza de date</td></tr>
         <tr><td><code>DEBUG</code></td><td>false</td><td>Reload automat la modificari</td></tr>
         <tr><td><code>APP_PORT</code></td><td>8002</td><td>Portul pe care ruleaza serverul</td></tr>
+        <tr><td><code>SCHEDULER_LOCK_PATH</code></td><td>/tmp/agent_articole_scheduler.lock</td><td>Fisierul de lock (flock) pentru scheduler-ul single-process; doar procesul care-l obtine porneste joburile periodice</td></tr>
         <tr><td><code>NTFY_ENABLED</code></td><td>false</td><td>Activeaza/dezactiveaza notificarile ntfy (<code>true</code> / <code>false</code>)</td></tr>
         <tr><td><code>NTFY_TOPIC</code></td><td>—</td><td>Numele topicului ntfy, ex: <code>agent-articole-abc123</code></td></tr>
         <tr><td><code>NTFY_BASE_URL</code></td><td>https://ntfy.sh</td><td>Server ntfy: <code>https://ntfy.sh</code> (cloud) sau <code>http://localhost:8080</code> (local Docker)</td></tr>
@@ -1886,10 +1908,12 @@ sudo systemctl stop agent-articole         # oprire</pre>
       <i class="bi bi-exclamation-triangle me-1"></i>
       <strong>De ce un singur worker?</strong><br>
       Aceasta aplicatie foloseste <strong>APScheduler</strong> (pornit in <code>lifespan</code>) si <strong>SSE log streaming</strong> (stare in memorie).
-      Cu mai multi workers, fiecare process porneste propriul scheduler — joburile s-ar executa de N ori simultan.
-      In plus, log stream-ul din UI ar afisa doar log-urile unui singur worker.<br><br>
+      Cu mai multi workers, log stream-ul din UI ar afisa doar log-urile unui singur worker.<br><br>
       Un singur process async (FastAPI + AsyncIOScheduler) este suficient — concurenta este gestionata de event loop, nu de procese multiple.
-      <strong>Nu adauga <code>--workers N</code>.</strong>
+      <strong>Nu adauga <code>--workers N</code>.</strong><br><br>
+      <i class="bi bi-shield-check me-1"></i><strong>Protectie la rulare:</strong> chiar daca pornesti din greseala mai multi workers pe acelasi host,
+      scheduler-ul foloseste un <strong>flock de singleton</strong> (<code>SCHEDULER_LOCK_PATH</code>) — doar primul proces care obtine lock-ul
+      porneste joburile periodice, deci acestea <strong>nu</strong> se executa de N ori.
     </div>
 
   </div>
@@ -1904,7 +1928,7 @@ sudo systemctl stop agent-articole         # oprire</pre>
 
     <p>
       Proiectul are o suita de teste <code>pytest</code> in directorul <code>tests/</code>
-      — <strong>105 teste</strong>, toate ruleaza local, <strong>fara internet, fara chei API si fara baza de date reala</strong>.
+      — <strong>122 teste</strong>, toate ruleaza local, <strong>fara internet, fara chei API si fara baza de date reala</strong>.
       Suita e impartita pe doua niveluri.
     </p>
 
@@ -1926,8 +1950,20 @@ sudo systemctl stop agent-articole         # oprire</pre>
         <tr>
           <td><span class="d-badge blue">Nivel 2</span></td>
           <td><code>tests/test_providers.py</code></td>
-          <td>Providerul <code>author</code> (OpenAlex + CrossRef): parsare, filtrare, deduplicare</td>
+          <td>Providerul <code>author</code> (OpenAlex + CrossRef): parsare, filtrare, deduplicare, <code>ProviderDownError</code> cand ambele surse pica</td>
           <td>HTTP mock-uit cu <code>respx</code></td>
+        </tr>
+        <tr>
+          <td><span class="d-badge green">Nivel 1</span></td>
+          <td><code>tests/test_circuit.py</code></td>
+          <td>Circuit breaker-ul: deschidere la prag, fail-fast, half-open, cooldown exponential, clasificarea esecurilor, integrarea cu dispatch</td>
+          <td>Ceas injectat (fara sleep real)</td>
+        </tr>
+        <tr>
+          <td><span class="d-badge blue">Nivel 2</span></td>
+          <td><code>tests/test_email.py</code></td>
+          <td>Serviciul de email: timeout SMTP explicit, eroare generica, lipsa credentialelor</td>
+          <td><code>aiosmtplib.send</code> mock-uit</td>
         </tr>
       </tbody>
     </table>
@@ -1965,7 +2001,7 @@ pytest -v -x
 pytest -k cooldown</pre>
     </div>
     <p style="margin-top:.75rem">Rezultat asteptat:</p>
-    <div class="d-response-box">105 passed in ~4s</div>
+    <div class="d-response-box">122 passed in ~4s</div>
 
     <div class="alert alert-info mt-3" style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:6px;padding:.7rem 1rem;font-size:.86rem;margin-top:1rem">
       <i class="bi bi-info-circle me-1"></i>

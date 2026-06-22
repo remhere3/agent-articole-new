@@ -127,9 +127,17 @@ async def test_crossref_filtreaza_autor_nepotrivit():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_eroare_openalex_nu_arunca_foloseste_crossref():
+async def test_eroare_openalex_nu_arunca_foloseste_crossref(monkeypatch):
     # OpenAlex pica (500) -> providerul trebuie sa continue cu rezultatele CrossRef
     # (asyncio.gather cu return_exceptions + fallback la []).
+    # 500 e status retryable, deci _get_with_retry reincerca cu backoff; anulam
+    # sleep-ul ca testul sa nu astepte real cele 2s+4s.
+    import app.services._utils as _utils
+
+    async def _no_sleep(_):
+        return None
+
+    monkeypatch.setattr(_utils.asyncio, "sleep", _no_sleep)
     respx.get(url__regex=OA_AUTHORS).mock(return_value=httpx.Response(500))
     respx.get(url__regex=OA_WORKS).mock(return_value=httpx.Response(500))
     respx.get(url__regex=CR_WORKS).mock(return_value=httpx.Response(200, json=_cr_works([
@@ -145,3 +153,23 @@ async def test_eroare_openalex_nu_arunca_foloseste_crossref():
     assert len(out) == 1
     assert out[0]["title"] == "Salvat de CrossRef"
     assert out[0]["url"] == "https://doi.org/10.9/cr"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_ambele_surse_jos_arunca_provider_down(monkeypatch):
+    # OpenAlex SI CrossRef pica amandoua (5xx) -> providerul e indisponibil:
+    # trebuie sa arunce ProviderDownError (nu sa intoarca [] tacut), ca breaker-ul
+    # sa numere esecul. Anulam sleep-ul de retry ca testul sa nu astepte real.
+    import app.services._utils as _utils
+    from app.services._circuit import ProviderDownError
+
+    async def _no_sleep(_):
+        return None
+
+    monkeypatch.setattr(_utils.asyncio, "sleep", _no_sleep)
+    respx.get(url__regex=OA_AUTHORS).mock(return_value=httpx.Response(503))
+    respx.get(url__regex=CR_WORKS).mock(return_value=httpx.Response(503))
+
+    with pytest.raises(ProviderDownError):
+        await search_articles("Simona Raboaca", days_back=3650, max_works=10)

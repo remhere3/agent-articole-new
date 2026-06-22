@@ -2,19 +2,60 @@
 Scheduler APScheduler pentru executia periodica a cautarilor.
 """
 import asyncio
+import fcntl
 import logging
+import os
 from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler(timezone="Europe/Bucharest")
 
+# Handle-ul fisierului de lock. Il pastram deschis cat traieste procesul: flock
+# se elibereaza automat de OS la inchiderea descriptorului / terminarea procesului.
+_lock_file = None
+
+
+def _acquire_singleton_lock() -> bool:
+    """Incearca sa obtina un flock exclusiv, ne-blocant, pe fisierul de lock.
+
+    Returneaza True daca acest proces a obtinut lock-ul (=> e singurul care
+    trebuie sa porneasca scheduler-ul). False daca lock-ul e deja detinut de
+    alt worker de pe acelasi host. Astfel, sub Gunicorn multi-worker, un singur
+    proces ruleaza joburile periodice, nu N. Se potriveste cu SQLite (un singur
+    host, fisier local). Eroarea de deschidere (cale/permisiuni gresite) se
+    propaga intentionat: e o eroare de configurare ce trebuie vazuta la pornire.
+    """
+    global _lock_file
+    f = open(settings.scheduler_lock_path, "w")
+    try:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.close()
+        return False
+    f.write(str(os.getpid()))
+    f.flush()
+    _lock_file = f
+    return True
+
 
 def start_scheduler():
-    """Porneste scheduler-ul si adauga job-ul de orchestrare."""
+    """Porneste scheduler-ul si adauga job-ul de orchestrare.
+
+    Doar procesul care obtine lock-ul de singleton porneste efectiv scheduler-ul;
+    ceilalti workers ies tacut, ca joburile sa nu ruleze de mai multe ori.
+    """
+    if not _acquire_singleton_lock():
+        logger.info(
+            "Scheduler skipped in this process — singleton lock held by another "
+            "worker (%s)", settings.scheduler_lock_path
+        )
+        return
     scheduler.add_job(
         orchestrate_searches,
         trigger=IntervalTrigger(minutes=15),
@@ -23,11 +64,15 @@ def start_scheduler():
         max_instances=1,
     )
     scheduler.start()
-    logger.info("Scheduler started — checking topics every 15 minutes")
+    logger.info("Scheduler started — checking topics every 15 minutes (pid %s)", os.getpid())
 
 
 def stop_scheduler():
-    scheduler.shutdown(wait=False)
+    # Doar procesul care a pornit scheduler-ul (cel cu lock-ul) il opreste.
+    if _lock_file is None:
+        return
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
     logger.info("Scheduler stopped")
 
 

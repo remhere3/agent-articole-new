@@ -11,9 +11,22 @@ from typing import List, Dict, Any, Optional
 
 import anthropic
 
-from app.services._utils import strip_watermarks as _strip_watermarks
+from app.services._utils import strip_watermarks as _strip_watermarks, retry_async
 
 logger = logging.getLogger(__name__)
+
+
+def _anthropic_retryable(exc: Exception) -> bool:
+    """True doar pentru erori Anthropic tranzitorii: 429 rate limit, 5xx server,
+    timeout/conexiune. Cele definitive (401 auth, 400 request invalid...) -> False,
+    esueaza imediat. Spre deosebire de vechea bucla manuala, acum si erorile 5xx
+    de server sunt reincercate, nu doar 429.
+    """
+    if isinstance(exc, anthropic.APIConnectionError):  # include APITimeoutError
+        return True
+    if isinstance(exc, anthropic.APIStatusError):
+        return exc.status_code == 429 or 500 <= exc.status_code < 600
+    return False
 
 
 def _date_range_str(days_back: int) -> tuple[str, str, str]:
@@ -111,7 +124,9 @@ async def search_articles(
     user_question: Optional[str] = None,
     telemetry: Optional[dict] = None,
 ) -> List[Dict[str, Any]]:
-    client = anthropic.Anthropic(api_key=api_key)
+    # max_retries=0: dezactivam retry-ul intern al SDK-ului ca sa nu se compuna cu
+    # retry_async de mai jos (altfel ar fi pana la 3x3 incercari, cu pauze duble).
+    client = anthropic.Anthropic(api_key=api_key, max_retries=0)
     prompt = _build_prompt(keywords, days_back, user_question)
     cutoff = datetime.now() - timedelta(days=days_back)
 
@@ -119,29 +134,27 @@ async def search_articles(
     logger.info(f"[Anthropic] START | '{log_task}' | days_back={days_back} | model={model}")
 
     t0 = time.perf_counter()
-    max_retries = 3
-    response = None
-    for attempt in range(1, max_retries + 1):
-        try:
-            logger.info(f"[Anthropic] Trimit cerere API (attempt {attempt}/{max_retries})...")
-            response = await asyncio.to_thread(
-                client.messages.create,
-                model=model,
-                max_tokens=8192,
-                tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 12}],
-                messages=[{"role": "user", "content": prompt}],
-            )
-            break
-        except anthropic.RateLimitError:
-            wait = 60 * attempt
-            logger.warning(f"[Anthropic] 429 rate limit (attempt {attempt}/{max_retries}) — astept {wait}s...")
-            if attempt == max_retries:
-                logger.error(f"[Anthropic] Rate limit depasit dupa {max_retries} incercari")
-                raise
-            await asyncio.sleep(wait)
-        except anthropic.APIError as e:
-            logger.error(f"[Anthropic] API error: {e}")
-            raise
+
+    async def _call():
+        logger.info("[Anthropic] Trimit cerere API...")
+        return await asyncio.to_thread(
+            client.messages.create,
+            model=model,
+            max_tokens=8192,
+            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 12}],
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+    # Backoff lung, specific Anthropic (60s, 120s): rate-limit-urile au nevoie de
+    # pauze mari, nu de cele 2s/4s implicite din retry_async pentru httpx.
+    response = await retry_async(
+        _call,
+        attempts=3,
+        base_delay=60.0,
+        max_delay=180.0,
+        retry_on=_anthropic_retryable,
+        label=f"Anthropic '{log_task}'",
+    )
 
     elapsed = time.perf_counter() - t0
     input_tokens  = getattr(response.usage, "input_tokens", None)

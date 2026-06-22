@@ -28,11 +28,19 @@ class Settings(BaseSettings):
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None
     email_from: str = "Agent Articole <noreply@example.com>"
+    # Timeout explicit (secunde) pe intreaga operatie SMTP. Fara el, un server
+    # SMTP blocat ar tine jobul ostatic (default-ul aiosmtplib e 60s, lung).
+    smtp_timeout: float = 30.0
 
     app_secret_key: str = "dev-secret-change-in-production"
     database_url: str = "sqlite:///./agent_articole.db"
     debug: bool = False
     app_port: int = 8002
+
+    # Lock de proces unic pentru scheduler (vezi app/scheduler.py). Daca ruleaza
+    # mai multi workers pe acelasi host, doar cel care obtine acest flock porneste
+    # scheduler-ul, evitand joburi duplicate. Trebuie sa fie pe un FS local comun.
+    scheduler_lock_path: str = "/tmp/agent_articole_scheduler.lock"
 
     ntfy_enabled: bool = False
     ntfy_base_url: str = "https://ntfy.sh"   # ntfy.sh sau http://localhost:8080 pentru local

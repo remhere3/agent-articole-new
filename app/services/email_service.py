@@ -189,9 +189,13 @@ async def send_report(
             username=settings.smtp_user,
             password=settings.smtp_password,
             start_tls=True,
+            timeout=settings.smtp_timeout,
         )
         logger.info(f"[Email] Trimis catre {to_addresses} | topic='{topic_name}' | {len(articles)} articole")
         return True
+    except (aiosmtplib.SMTPTimeoutError, TimeoutError) as e:
+        logger.error(f"Email send timeout dupa {settings.smtp_timeout}s: {e}")
+        return False
     except Exception as e:
         logger.error(f"Email send error: {e}")
         return False

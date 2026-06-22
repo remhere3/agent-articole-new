@@ -13,7 +13,13 @@ from typing import List, Dict, Any, Optional
 
 import httpx
 
-from app.services._utils import domain as _domain, parse_date as _parse_date
+from app.services._utils import (
+    domain as _domain,
+    parse_date as _parse_date,
+    retry_async,
+    is_retryable_http,
+)
+from app.services._circuit import ProviderDownError, is_infra_failure
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +27,23 @@ OA_BASE = "https://api.openalex.org"
 CR_BASE = "https://api.crossref.org"
 # OpenAlex recomanda email in User-Agent pentru "polite pool" (rate limit mai relaxat)
 USER_AGENT = "AgentArticole/1.0 (mailto:agent@icsi.ro)"
+
+
+async def _get_with_retry(client: httpx.AsyncClient, url: str, params: dict, label: str):
+    """GET cu reincercari pe erori tranzitorii (timeout/conexiune/429/5xx).
+
+    `raise_for_status()` transforma raspunsurile 4xx/5xx in exceptii, ca
+    `retry_async` sa reincerce cele tranzitorii (429/5xx via `is_retryable_http`)
+    cu backoff exponential. Erorile definitive (404, 400...) sunt re-aruncate
+    imediat si tratate de apelant exact ca pana acum (log + lista goala / break).
+    Inlocuieste lipsa totala de retry de pe OpenAlex/CrossRef.
+    """
+    async def _do():
+        r = await client.get(url, params=params, headers={"User-Agent": USER_AGENT})
+        r.raise_for_status()
+        return r
+
+    return await retry_async(_do, retry_on=is_retryable_http, label=label)
 
 
 # Cuvinte-zgomot uzuale in numele topicurilor (ex. "articole stiintifice X").
@@ -89,19 +112,22 @@ async def _search_openalex(
     1. Cauta autorul in OpenAlex dupa nume → obtine author ID
     2. Obtine lucrarile autorului filtrate dupa data
     """
-    # Pas 1: cauta autorul
+    # Pas 1: cauta autorul. E "poarta" catre OpenAlex: daca pica din motive
+    # infra (timeout/5xx dupa retry), propagam exceptia ca top-level-ul sa stie
+    # ca OpenAlex e jos (pentru circuit breaker). Erorile non-infra -> lista goala.
     try:
-        r = await client.get(
+        r = await _get_with_retry(
+            client,
             f"{OA_BASE}/authors",
-            params={"search": author_name, "per-page": 5},
-            headers={"User-Agent": USER_AGENT},
+            {"search": author_name, "per-page": 5},
+            label=f"OpenAlex authors '{author_name[:40]}'",
         )
-        if r.status_code != 200:
-            logger.warning(f"[Author/OA] Author search HTTP {r.status_code}")
-            return []
         candidates = r.json().get("results", [])
         logger.info(f"[Author/OA] {len(candidates)} candidati pentru '{author_name}'")
     except Exception as e:
+        if is_infra_failure(e):
+            logger.warning(f"[Author/OA] OpenAlex inaccesibil: {e}")
+            raise
         logger.warning(f"[Author/OA] Author search error: {e}")
         return []
 
@@ -136,20 +162,18 @@ async def _search_openalex(
         pages = 0
         while cursor and len(works) < max_works:
             try:
-                r = await client.get(
+                r = await _get_with_retry(
+                    client,
                     f"{OA_BASE}/works",
-                    params={
+                    {
                         "filter": f"authorships.author.id:{author_id},from_publication_date:{from_date}",
                         "per-page": per_page,
                         "cursor": cursor,
                         "sort": "publication_date:desc",
                         "select": "id,title,authorships,publication_date,doi,open_access,ids,primary_location,abstract_inverted_index",
                     },
-                    headers={"User-Agent": USER_AGENT},
+                    label=f"OpenAlex works {author_id}",
                 )
-                if r.status_code != 200:
-                    logger.warning(f"[Author/OA] Works HTTP {r.status_code}: {r.text[:200]}")
-                    break
                 data = r.json()
                 page_results = data.get("results", [])
                 works.extend(page_results)
@@ -237,9 +261,10 @@ async def _search_crossref(
     pages = 0
     while cursor and len(items) < max_works:
         try:
-            r = await client.get(
+            r = await _get_with_retry(
+                client,
                 f"{CR_BASE}/works",
-                params={
+                {
                     "query.author": author_name,
                     "rows": rows,
                     "cursor": cursor,
@@ -250,11 +275,8 @@ async def _search_crossref(
                     "filter": f"from-pub-date:{cutoff.strftime('%Y-%m-%d')}",
                     "select": "DOI,title,author,published,published-print,published-online,abstract,container-title,URL",
                 },
-                headers={"User-Agent": USER_AGENT},
+                label=f"CrossRef works '{author_name[:40]}'",
             )
-            if r.status_code != 200:
-                logger.warning(f"[Author/CR] HTTP {r.status_code}")
-                break
             msg = r.json().get("message", {})
             page_items = msg.get("items", [])
             items.extend(page_items)
@@ -263,6 +285,11 @@ async def _search_crossref(
             if not page_items:
                 break
         except Exception as e:
+            # Daca am picat pe prima pagina din motive infra (nimic colectat),
+            # CrossRef e jos -> propagam. Daca aveam deja pagini, pastram ce avem.
+            if not items and is_infra_failure(e):
+                logger.warning(f"[Author/CR] CrossRef inaccesibil: {e}")
+                raise
             logger.warning(f"[Author/CR] Search error: {e}")
             break
 
@@ -345,12 +372,21 @@ async def search_articles(
             return_exceptions=True,
         )
 
-    if isinstance(oa_res, Exception):
+    oa_down = isinstance(oa_res, Exception)
+    cr_down = isinstance(cr_res, Exception)
+    if oa_down:
         logger.warning(f"[Author] OpenAlex error: {oa_res}")
         oa_res = []
-    if isinstance(cr_res, Exception):
+    if cr_down:
         logger.warning(f"[Author] CrossRef error: {cr_res}")
         cr_res = []
+
+    # Ambele surse jos din motive infra -> providerul e indisponibil. Aruncam
+    # (nu intoarcem [] tacut), ca circuit breaker-ul sa numere esecul.
+    if oa_down and cr_down:
+        raise ProviderDownError(
+            "Author indisponibil: OpenAlex si CrossRef au esuat amandoua"
+        )
 
     if telemetry is not None:
         telemetry["api_calls"] = 2

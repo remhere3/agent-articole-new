@@ -18,6 +18,7 @@ from app.services._utils import (
     retry_async,
     strip_watermarks as _strip_watermarks,
 )
+from app.services._circuit import ProviderDownError, is_infra_failure
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,10 @@ async def search_articles(
 
     seen: set = set()
     collected: List[Dict] = []
+    # Pentru circuit breaker: numaram apelurile reusite vs cele esuate infra.
+    # Daca TOATE apelurile au picat infra (zero reusite), Tavily e jos -> aruncam.
+    tavily_ok = 0
+    tavily_infra_fail = 0
 
     if is_author_search:
         queries = [
@@ -106,6 +111,7 @@ async def search_articles(
                 label=f"Tavily academic q{qi}",
             )
             _tavily_calls += 1
+            tavily_ok += 1
             n_new = sum(1 for item in r1.get("results", []) if item.get("url", "").strip() not in seen)
             logger.info(f"[Tavily] [{qi}] Academic: {len(r1.get('results', []))} rezultate ({time.perf_counter()-t0:.1f}s) | {n_new} noi")
             for item in r1.get("results", []):
@@ -114,6 +120,8 @@ async def search_articles(
                     seen.add(url)
                     collected.append(item)
         except Exception as e:
+            if is_infra_failure(e):
+                tavily_infra_fail += 1
             logger.warning(f"[Tavily] [{qi}] Academic search error: {e}")
 
         # Trecere 2: general (fara filtrare domenii)
@@ -133,6 +141,7 @@ async def search_articles(
                 label=f"Tavily general q{qi}",
             )
             _tavily_calls += 1
+            tavily_ok += 1
             n_new = sum(1 for item in r2.get("results", []) if item.get("url", "").strip() not in seen)
             logger.info(f"[Tavily] [{qi}] General: {len(r2.get('results', []))} rezultate ({time.perf_counter()-t0:.1f}s) | {n_new} noi")
             for item in r2.get("results", []):
@@ -141,7 +150,12 @@ async def search_articles(
                     seen.add(url)
                     collected.append(item)
         except Exception as e:
+            if is_infra_failure(e):
+                tavily_infra_fail += 1
             logger.warning(f"[Tavily] [{qi}] General search error: {e}")
+
+    if tavily_ok == 0 and tavily_infra_fail > 0:
+        raise ProviderDownError("Tavily indisponibil: toate apelurile au esuat infra")
 
     if telemetry is not None:
         telemetry["api_calls"] = _tavily_calls
