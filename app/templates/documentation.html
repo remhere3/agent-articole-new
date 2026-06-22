@@ -137,10 +137,10 @@ body {
   <nav class="d-toc" id="docs-toc">
     <span class="d-toc-title">Cuprins</span>
     <a href="#providers">Provideri de cautare</a>
+    <a href="#maximize">Maximizare rezultate</a>
     <a href="#overview">Descriere</a>
     <a href="#schemas">Scheme arhitectura</a>
     <a href="#quickstart">Pornire rapida</a>
-    <a href="#maximize">Maximizare rezultate</a>
     <a href="#api-users">API Utilizatori</a>
     <a href="#api-topics">API Topicuri</a>
     <a href="#api-searches">API Cautari</a>
@@ -639,6 +639,189 @@ body {
 </div>
 </section>
 
+<!-- ══ MAXIMIZARE REZULTATE ══════════════════════════════════ -->
+<section id="maximize" class="d-section-anchor">
+<div class="d-card">
+  <div class="d-card-header"><i class="bi bi-graph-up-arrow me-1"></i>Cum maximizezi numarul de rezultate</div>
+  <div class="d-card-body" style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- Limita 10 articole -->
+    <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.25);border-left:4px solid #c45c00;border-radius:.4rem;padding:.75rem 1rem;">
+      <strong style="color:#c45c00;font-size:.9rem;"><i class="bi bi-exclamation-triangle me-1"></i>Limita structurala: putine articole per run (provider Anthropic)</strong>
+      <p style="margin:.4rem 0 0;font-size:.85rem;">
+        Tool-ul <code>web_search_20250305</code> permite pana la <strong>12 apeluri de cautare</strong> per run, dar
+        modelul decide cate face si <strong>tinde sa se opreasca dupa cateva</strong> — deci marirea bugetului de cautari
+        nu garanteaza mai multe rezultate. Web search-ul e <strong>non-determinist</strong> (rezultatele variaza intre rulari),
+        iar rezultatul tipic ramane <strong>~5 articole per run</strong>, indiferent de complexitatea intrebarii.
+      </p>
+      <p style="margin:.35rem 0 0;font-size:.85rem;">
+        Aceasta nu e o limitare a aplicatiei — e o limita tehnica a tool-ului nativ Anthropic.
+        Providerul <span class="d-badge orange">tavily</span> poate returna mai multe rezultate (20–30+) per run deoarece
+        face 4 cereri paralele (2 interogari × 2 treceri academic/general).
+      </p>
+    </div>
+
+    <!-- Keywords -->
+    <div>
+      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-key me-1"></i>Cum formulezi keywords-urile optim</p>
+      <table class="d-table">
+        <thead><tr><th>Regula</th><th style="color:#4ade80">Corect</th><th style="color:#f87171">Gresit</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Termeni tehnici specifici, nu propoziții</td>
+            <td><code>PEM electrolysis degradation membrane</code></td>
+            <td><code>ce se intampla cu membranele in electroliza PEM</code></td>
+          </tr>
+          <tr>
+            <td>3–6 cuvinte cheie separate prin spații</td>
+            <td><code>CRISPR gene editing cancer therapy</code></td>
+            <td><code>CRISPR, gene editing, cancer treatment methods, 2025</code></td>
+          </tr>
+          <tr>
+            <td>Include acronimele și numele complet</td>
+            <td><code>SMR steam methane reforming hydrogen cost</code></td>
+            <td><code>hydrogen production</code> <em>(prea vag)</em></td>
+          </tr>
+          <tr>
+            <td>Termeni din titluri de articole academice</td>
+            <td><code>solid oxide electrolysis cell SOEC efficiency</code></td>
+            <td><code>electrolyzer care functioneaza bine</code></td>
+          </tr>
+          <tr>
+            <td>Fara date, instructiuni sau formatare</td>
+            <td><code>hydrogen storage ammonia LOHC pipeline</code></td>
+            <td><code>hydrogen storage 2025 review table list</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- user_question -->
+    <div>
+      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-chat-left-text me-1"></i>Cum formulezi <code>user_question</code> optim</p>
+      <div style="background:rgba(0,68,170,.06);border:1px solid rgba(0,68,170,.18);border-radius:.4rem;padding:.65rem .9rem;font-size:.85rem;margin-bottom:.75rem;">
+        <strong style="color:#0044aa;">Ce face <code>user_question</code>:</strong> ghideaza subiectul cautarii cu mai mult
+        context decat keywords-urile singure. Claude il foloseste ca referinta de domeniu, <em>nu</em> ca instructiune de formatare a raspunsului.
+      </div>
+      <table class="d-table">
+        <thead><tr><th>Regula</th><th style="color:#4ade80">Corect</th><th style="color:#f87171">Gresit — cauzeaza 0 rezultate</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>1–2 propoziții max, limbaj de căutare</td>
+            <td><code>Recent papers on green hydrogen production costs, PEM/SOEC electrolysis efficiency and LCOH projections 2030-2050</code></td>
+            <td>Prompt de 1000+ cuvinte cu 7 secțiuni și tabele cerute</td>
+          </tr>
+          <tr>
+            <td>Fara instructiuni de format</td>
+            <td><code>Find peer-reviewed articles on hydrogen storage ammonia LOHC carriers published after 2023</code></td>
+            <td><code>Present results as: (a) structured summary, (b) table, (c) 10 must-read papers with DOI</code></td>
+          </tr>
+          <tr>
+            <td>Fara instructiuni de rol AI</td>
+            <td><code>Hydrogen production industry: SMR, electrolysis, CCS lifecycle emissions</code></td>
+            <td><code>You are an expert research assistant specializing in...</code></td>
+          </tr>
+          <tr>
+            <td>Poti lasa gol dacă keywords sunt suficienți</td>
+            <td><em>(camp gol)</em> + keywords: <code>LCOH electrolyzer stack cost 2030</code></td>
+            <td>Intrebare complexa fara keywords de backup</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- days_back -->
+    <div>
+      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-calendar-range me-1"></i>Setarea <code>days_back</code> — impact major</p>
+      <table class="d-table">
+        <thead><tr><th>Valoare</th><th>Caz de utilizare</th><th>Risc</th></tr></thead>
+        <tbody>
+          <tr><td><code>7–14</code></td><td>Alerte saptamanale pe subiecte active (AI, genomica)</td><td>0 rezultate pe subiecte nise cu publicare rara</td></tr>
+          <tr><td><code>30–60</code></td><td>Monitorizare lunara subiecte mediu-active</td><td>Putine rezultate pe domenii cu peer-review lung</td></tr>
+          <tr><td><strong><code>90–180</code></strong></td><td><strong>Recomandat pentru literatura academica generala</strong></td><td>—</td></tr>
+          <tr><td><code>365</code></td><td>Prima rulare / topic nou — captureaza starea domeniului</td><td>Articole mai vechi, mai putine "noutati"</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:.83rem;margin-top:.5rem;color:var(--d-muted);">
+        <i class="bi bi-info-circle me-1"></i>Peer-review dureaza 2–6 luni. Cu <code>days_back=30</code> pe un subiect nis, exista fizic putine articole noi — nu e o problema a agentului.
+      </p>
+    </div>
+
+    <!-- Strategia cu topicuri separate -->
+    <div>
+      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-diagram-2 me-1"></i>Strategia cu topicuri separate — pentru review-uri comprehensive</p>
+      <p style="font-size:.85rem;">
+        Daca vrei sa acoperi un domeniu larg (ex: industria hidrogenului cu 7 dimensiuni),
+        <strong>creeaza un topic separat per dimensiune</strong> in loc de un singur topic cu o intrebare complexa.
+        Fiecare run va returna 5–15 articole focalizate. Dupa 7 run-uri ai 35–100 articole categorializate.
+      </p>
+      <div class="d-code-block">
+        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+        <pre># Exemplu: industria hidrogenului — 7 topicuri × ~10 articole = ~70 articole totale
+
+TOPICS = [
+  {"name": "H2 — Productie",         "keywords": "SMR coal gasification electrolysis efficiency TRL cost benchmark",               "days_back": 180},
+  {"name": "H2 — Green/Grey/Blue",   "keywords": "lifecycle CO2 emissions hydrogen CCS CCUS net-zero pathway",                    "days_back": 180},
+  {"name": "H2 — Electroliza",       "keywords": "PEM electrolyzer degradation Nafion membrane stack cost reduction 300kW",       "days_back": 180},
+  {"name": "H2 — Economie",          "keywords": "levelized cost hydrogen LCOH CAPEX OPEX Nel ITM Plug Power Air Liquide",        "days_back": 180},
+  {"name": "H2 — Infrastructura",    "keywords": "hydrogen compression liquefaction ammonia LOHC pipeline repurposing ISO IEC",   "days_back": 180},
+  {"name": "H2 — Politici",          "keywords": "EU hydrogen strategy IRA 45V tax credit Germany Japan Australia China roadmap", "days_back": 365},
+  {"name": "H2 — Frontiere",         "keywords": "solid-state hydrogen storage dark fermentation biophotolysis AI catalyst",      "days_back": 365},
+]</pre>
+      </div>
+      <div style="background:rgba(26,107,74,.07);border:1px solid rgba(26,107,74,.2);border-left:3px solid #1a6b4a;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;margin-top:.75rem;">
+        <strong style="color:#1a6b4a;"><i class="bi bi-lightbulb me-1"></i>Sfat:</strong>
+        Seteaza <code>periodicity_hours</code> diferit per topic (ex: 168 = saptamanal) ca sa nu primesti toate emailurile simultan.
+        Poti folosi acelasi utilizator abonat la toate topicurile — vei primi un email per dimensiune, fiecare bine focalizat.
+      </div>
+    </div>
+
+    <!-- Tabel comparativ provideri pentru volum -->
+    <div>
+      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-table me-1"></i>Volum rezultate per provider</p>
+      <table class="d-table">
+        <thead><tr><th>Provider</th><th>Rezultate tipice / run</th><th>Cand sa-l folosesti</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="d-badge blue">anthropic</span></td>
+            <td>5–15 articole</td>
+            <td>Intrebari cu nuanta, sinteza, domenii complexe — calitate &gt; cantitate</td>
+          </tr>
+          <tr>
+            <td><span class="d-badge orange">tavily</span></td>
+            <td>15–30+ articole</td>
+            <td><strong>Volum maxim</strong>, surse academice garantate, filtrare stricta domenii</td>
+          </tr>
+          <tr>
+            <td><span class="d-badge purple">searxng</span></td>
+            <td>10–25 articole</td>
+            <td>Self-hosted complet, fara costuri externe; SearXNG cauta, Ollama rezuma</td>
+          </tr>
+          <tr>
+            <td><span class="d-badge teal">author</span></td>
+            <td>Toate lucrarile autorului din fereastra <code>days_back</code></td>
+            <td><strong>Cautare dupa autor</strong> — monitorizare productie stiintifica a unui cercetator specific; <code>keywords</code> = numele autorului</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- De ce rezultatele difera intre rulari -->
+    <div style="background:rgba(181,25,44,.06);border:1px solid rgba(181,25,44,.2);border-left:4px solid #b5192c;border-radius:.4rem;padding:.75rem 1rem;">
+      <strong style="color:#b5192c;font-size:.9rem;"><i class="bi bi-exclamation-diamond-fill me-2" style="font-size:1.3rem;vertical-align:middle;"></i>De ce 2 rulari succesive nu returneaza aceleasi rezultate?</strong>
+      <p style="margin:.5rem 0 .4rem;font-size:.85rem;">Acest comportament este <strong>normal si intentionat</strong>. Exista trei cauze:</p>
+      <ol style="font-size:.84rem;margin:0 0 .6rem;padding-left:1.4rem;line-height:1.8;">
+        <li><strong>Cautarile web sunt live si non-deterministe</strong> — fiecare run face cereri reale catre motoare de cautare. Rankingul se schimba, articole noi apar, cache-ul difera de la un apel la altul.</li>
+        <li><strong>Modelul LLM are variabilitate</strong> — Claude decide singur ce interogari sa lanseze si ce articole sa includa. Cu <code>temperature &gt; 0</code> (implicit), aceleasi instructiuni pot genera strategii de cautare usor diferite la fiecare rulare.</li>
+        <li><strong>Filtrarea dupa data taie diferit la margine</strong> — articolele publicate exact la limita ferestrei <code>days_back</code> pot fi incluse sau excluse in functie de ora rularii sau de cum modelul interpreteaza data.</li>
+      </ol>
+      <p style="margin:0;font-size:.84rem;"><strong>Recomandare:</strong> foloseste <code>days_back</code> mai mare (30–60 zile) pentru a mentine articolele importante in fereastra pe mai multe rulari. Rularea zilnica (nu la minute distanta) este comportamentul optim — prinde articolele noi fara zgomot.</p>
+    </div>
+
+  </div>
+</div>
+</section>
+
 <!-- ══ DESCRIERE ════════════════════════════════════════════ -->
 <section id="overview" class="d-section-anchor">
 <div class="d-card">
@@ -1067,189 +1250,6 @@ body {
       <li>Deschide browser la <code>http://localhost:8002</code></li>
       <li>Adauga un utilizator → creeaza un topic → apasa <i class="bi bi-play-fill"></i> pentru prima cautare</li>
     </ol>
-  </div>
-</div>
-</section>
-
-<!-- ══ MAXIMIZARE REZULTATE ══════════════════════════════════ -->
-<section id="maximize" class="d-section-anchor">
-<div class="d-card">
-  <div class="d-card-header"><i class="bi bi-graph-up-arrow me-1"></i>Cum maximizezi numarul de rezultate</div>
-  <div class="d-card-body" style="display:flex;flex-direction:column;gap:1.25rem;">
-
-    <!-- Limita 10 articole -->
-    <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.25);border-left:4px solid #c45c00;border-radius:.4rem;padding:.75rem 1rem;">
-      <strong style="color:#c45c00;font-size:.9rem;"><i class="bi bi-exclamation-triangle me-1"></i>Limita structurala: putine articole per run (provider Anthropic)</strong>
-      <p style="margin:.4rem 0 0;font-size:.85rem;">
-        Tool-ul <code>web_search_20250305</code> permite pana la <strong>12 apeluri de cautare</strong> per run, dar
-        modelul decide cate face si <strong>tinde sa se opreasca dupa cateva</strong> — deci marirea bugetului de cautari
-        nu garanteaza mai multe rezultate. Web search-ul e <strong>non-determinist</strong> (rezultatele variaza intre rulari),
-        iar rezultatul tipic ramane <strong>~5 articole per run</strong>, indiferent de complexitatea intrebarii.
-      </p>
-      <p style="margin:.35rem 0 0;font-size:.85rem;">
-        Aceasta nu e o limitare a aplicatiei — e o limita tehnica a tool-ului nativ Anthropic.
-        Providerul <span class="d-badge orange">tavily</span> poate returna mai multe rezultate (20–30+) per run deoarece
-        face 4 cereri paralele (2 interogari × 2 treceri academic/general).
-      </p>
-    </div>
-
-    <!-- Keywords -->
-    <div>
-      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-key me-1"></i>Cum formulezi keywords-urile optim</p>
-      <table class="d-table">
-        <thead><tr><th>Regula</th><th style="color:#4ade80">Corect</th><th style="color:#f87171">Gresit</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>Termeni tehnici specifici, nu propoziții</td>
-            <td><code>PEM electrolysis degradation membrane</code></td>
-            <td><code>ce se intampla cu membranele in electroliza PEM</code></td>
-          </tr>
-          <tr>
-            <td>3–6 cuvinte cheie separate prin spații</td>
-            <td><code>CRISPR gene editing cancer therapy</code></td>
-            <td><code>CRISPR, gene editing, cancer treatment methods, 2025</code></td>
-          </tr>
-          <tr>
-            <td>Include acronimele și numele complet</td>
-            <td><code>SMR steam methane reforming hydrogen cost</code></td>
-            <td><code>hydrogen production</code> <em>(prea vag)</em></td>
-          </tr>
-          <tr>
-            <td>Termeni din titluri de articole academice</td>
-            <td><code>solid oxide electrolysis cell SOEC efficiency</code></td>
-            <td><code>electrolyzer care functioneaza bine</code></td>
-          </tr>
-          <tr>
-            <td>Fara date, instructiuni sau formatare</td>
-            <td><code>hydrogen storage ammonia LOHC pipeline</code></td>
-            <td><code>hydrogen storage 2025 review table list</code></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- user_question -->
-    <div>
-      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-chat-left-text me-1"></i>Cum formulezi <code>user_question</code> optim</p>
-      <div style="background:rgba(0,68,170,.06);border:1px solid rgba(0,68,170,.18);border-radius:.4rem;padding:.65rem .9rem;font-size:.85rem;margin-bottom:.75rem;">
-        <strong style="color:#0044aa;">Ce face <code>user_question</code>:</strong> ghideaza subiectul cautarii cu mai mult
-        context decat keywords-urile singure. Claude il foloseste ca referinta de domeniu, <em>nu</em> ca instructiune de formatare a raspunsului.
-      </div>
-      <table class="d-table">
-        <thead><tr><th>Regula</th><th style="color:#4ade80">Corect</th><th style="color:#f87171">Gresit — cauzeaza 0 rezultate</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>1–2 propoziții max, limbaj de căutare</td>
-            <td><code>Recent papers on green hydrogen production costs, PEM/SOEC electrolysis efficiency and LCOH projections 2030-2050</code></td>
-            <td>Prompt de 1000+ cuvinte cu 7 secțiuni și tabele cerute</td>
-          </tr>
-          <tr>
-            <td>Fara instructiuni de format</td>
-            <td><code>Find peer-reviewed articles on hydrogen storage ammonia LOHC carriers published after 2023</code></td>
-            <td><code>Present results as: (a) structured summary, (b) table, (c) 10 must-read papers with DOI</code></td>
-          </tr>
-          <tr>
-            <td>Fara instructiuni de rol AI</td>
-            <td><code>Hydrogen production industry: SMR, electrolysis, CCS lifecycle emissions</code></td>
-            <td><code>You are an expert research assistant specializing in...</code></td>
-          </tr>
-          <tr>
-            <td>Poti lasa gol dacă keywords sunt suficienți</td>
-            <td><em>(camp gol)</em> + keywords: <code>LCOH electrolyzer stack cost 2030</code></td>
-            <td>Intrebare complexa fara keywords de backup</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- days_back -->
-    <div>
-      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-calendar-range me-1"></i>Setarea <code>days_back</code> — impact major</p>
-      <table class="d-table">
-        <thead><tr><th>Valoare</th><th>Caz de utilizare</th><th>Risc</th></tr></thead>
-        <tbody>
-          <tr><td><code>7–14</code></td><td>Alerte saptamanale pe subiecte active (AI, genomica)</td><td>0 rezultate pe subiecte nise cu publicare rara</td></tr>
-          <tr><td><code>30–60</code></td><td>Monitorizare lunara subiecte mediu-active</td><td>Putine rezultate pe domenii cu peer-review lung</td></tr>
-          <tr><td><strong><code>90–180</code></strong></td><td><strong>Recomandat pentru literatura academica generala</strong></td><td>—</td></tr>
-          <tr><td><code>365</code></td><td>Prima rulare / topic nou — captureaza starea domeniului</td><td>Articole mai vechi, mai putine "noutati"</td></tr>
-        </tbody>
-      </table>
-      <p style="font-size:.83rem;margin-top:.5rem;color:var(--d-muted);">
-        <i class="bi bi-info-circle me-1"></i>Peer-review dureaza 2–6 luni. Cu <code>days_back=30</code> pe un subiect nis, exista fizic putine articole noi — nu e o problema a agentului.
-      </p>
-    </div>
-
-    <!-- Strategia cu topicuri separate -->
-    <div>
-      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-diagram-2 me-1"></i>Strategia cu topicuri separate — pentru review-uri comprehensive</p>
-      <p style="font-size:.85rem;">
-        Daca vrei sa acoperi un domeniu larg (ex: industria hidrogenului cu 7 dimensiuni),
-        <strong>creeaza un topic separat per dimensiune</strong> in loc de un singur topic cu o intrebare complexa.
-        Fiecare run va returna 5–15 articole focalizate. Dupa 7 run-uri ai 35–100 articole categorializate.
-      </p>
-      <div class="d-code-block">
-        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
-        <pre># Exemplu: industria hidrogenului — 7 topicuri × ~10 articole = ~70 articole totale
-
-TOPICS = [
-  {"name": "H2 — Productie",         "keywords": "SMR coal gasification electrolysis efficiency TRL cost benchmark",               "days_back": 180},
-  {"name": "H2 — Green/Grey/Blue",   "keywords": "lifecycle CO2 emissions hydrogen CCS CCUS net-zero pathway",                    "days_back": 180},
-  {"name": "H2 — Electroliza",       "keywords": "PEM electrolyzer degradation Nafion membrane stack cost reduction 300kW",       "days_back": 180},
-  {"name": "H2 — Economie",          "keywords": "levelized cost hydrogen LCOH CAPEX OPEX Nel ITM Plug Power Air Liquide",        "days_back": 180},
-  {"name": "H2 — Infrastructura",    "keywords": "hydrogen compression liquefaction ammonia LOHC pipeline repurposing ISO IEC",   "days_back": 180},
-  {"name": "H2 — Politici",          "keywords": "EU hydrogen strategy IRA 45V tax credit Germany Japan Australia China roadmap", "days_back": 365},
-  {"name": "H2 — Frontiere",         "keywords": "solid-state hydrogen storage dark fermentation biophotolysis AI catalyst",      "days_back": 365},
-]</pre>
-      </div>
-      <div style="background:rgba(26,107,74,.07);border:1px solid rgba(26,107,74,.2);border-left:3px solid #1a6b4a;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;margin-top:.75rem;">
-        <strong style="color:#1a6b4a;"><i class="bi bi-lightbulb me-1"></i>Sfat:</strong>
-        Seteaza <code>periodicity_hours</code> diferit per topic (ex: 168 = saptamanal) ca sa nu primesti toate emailurile simultan.
-        Poti folosi acelasi utilizator abonat la toate topicurile — vei primi un email per dimensiune, fiecare bine focalizat.
-      </div>
-    </div>
-
-    <!-- Tabel comparativ provideri pentru volum -->
-    <div>
-      <p style="font-weight:700;font-size:.92rem;margin-bottom:.6rem;"><i class="bi bi-table me-1"></i>Volum rezultate per provider</p>
-      <table class="d-table">
-        <thead><tr><th>Provider</th><th>Rezultate tipice / run</th><th>Cand sa-l folosesti</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><span class="d-badge blue">anthropic</span></td>
-            <td>5–15 articole</td>
-            <td>Intrebari cu nuanta, sinteza, domenii complexe — calitate &gt; cantitate</td>
-          </tr>
-          <tr>
-            <td><span class="d-badge orange">tavily</span></td>
-            <td>15–30+ articole</td>
-            <td><strong>Volum maxim</strong>, surse academice garantate, filtrare stricta domenii</td>
-          </tr>
-          <tr>
-            <td><span class="d-badge purple">searxng</span></td>
-            <td>10–25 articole</td>
-            <td>Self-hosted complet, fara costuri externe; SearXNG cauta, Ollama rezuma</td>
-          </tr>
-          <tr>
-            <td><span class="d-badge teal">author</span></td>
-            <td>Toate lucrarile autorului din fereastra <code>days_back</code></td>
-            <td><strong>Cautare dupa autor</strong> — monitorizare productie stiintifica a unui cercetator specific; <code>keywords</code> = numele autorului</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- De ce rezultatele difera intre rulari -->
-    <div style="background:rgba(181,25,44,.06);border:1px solid rgba(181,25,44,.2);border-left:4px solid #b5192c;border-radius:.4rem;padding:.75rem 1rem;">
-      <strong style="color:#b5192c;font-size:.9rem;"><i class="bi bi-exclamation-diamond-fill me-2" style="font-size:1.3rem;vertical-align:middle;"></i>De ce 2 rulari succesive nu returneaza aceleasi rezultate?</strong>
-      <p style="margin:.5rem 0 .4rem;font-size:.85rem;">Acest comportament este <strong>normal si intentionat</strong>. Exista trei cauze:</p>
-      <ol style="font-size:.84rem;margin:0 0 .6rem;padding-left:1.4rem;line-height:1.8;">
-        <li><strong>Cautarile web sunt live si non-deterministe</strong> — fiecare run face cereri reale catre motoare de cautare. Rankingul se schimba, articole noi apar, cache-ul difera de la un apel la altul.</li>
-        <li><strong>Modelul LLM are variabilitate</strong> — Claude decide singur ce interogari sa lanseze si ce articole sa includa. Cu <code>temperature &gt; 0</code> (implicit), aceleasi instructiuni pot genera strategii de cautare usor diferite la fiecare rulare.</li>
-        <li><strong>Filtrarea dupa data taie diferit la margine</strong> — articolele publicate exact la limita ferestrei <code>days_back</code> pot fi incluse sau excluse in functie de ora rularii sau de cum modelul interpreteaza data.</li>
-      </ol>
-      <p style="margin:0;font-size:.84rem;"><strong>Recomandare:</strong> foloseste <code>days_back</code> mai mare (30–60 zile) pentru a mentine articolele importante in fereastra pe mai multe rulari. Rularea zilnica (nu la minute distanta) este comportamentul optim — prinde articolele noi fara zgomot.</p>
-    </div>
-
   </div>
 </div>
 </section>
