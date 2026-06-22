@@ -137,6 +137,7 @@ body {
   <nav class="d-toc" id="docs-toc">
     <span class="d-toc-title">Cuprins</span>
     <a href="#providers">Provideri de cautare</a>
+    <a href="#provider-examples">Exemple per provider</a>
     <a href="#maximize">Maximizare rezultate</a>
     <a href="#overview">Descriere</a>
     <a href="#schemas">Scheme arhitectura</a>
@@ -635,6 +636,104 @@ body {
       </div>
 
     </div>
+  </div>
+</div>
+</section>
+
+<!-- ══ EXEMPLE PER PROVIDER ══════════════════════════════════ -->
+<section id="provider-examples" class="d-section-anchor">
+<div class="d-card">
+  <div class="d-card-header"><i class="bi bi-code-square me-1"></i>Exemple per provider</div>
+  <div class="d-card-body">
+    <p style="font-size:.88rem;">
+      Cate un topic concret pentru fiecare provider, ales sa-i puna in evidenta punctul forte.
+      Toate creeaza un topic via <code>POST /api/topics</code>; declansarea unei cautari imediate se face cu
+      <code>POST /api/searches/run/&#123;id&#125;</code>. Inlocuieste <code>user_ids</code> cu utilizatorii tai.
+    </p>
+
+    <!-- anthropic -->
+    <div style="background:rgba(0,68,170,.06);border:1px solid rgba(0,68,170,.2);border-left:3px solid #2563eb;border-radius:.4rem;padding:.65rem .9rem;margin-bottom:.6rem;">
+      <strong style="color:#1d4ed8;font-size:.86rem;"><span class="d-badge blue">anthropic</span> — intrebare tematica in limbaj natural</strong>
+      <p style="margin:.3rem 0 .5rem;font-size:.83rem;">Scenariu: vrei o <em>sinteza</em> pe un subiect de nisa. Folosesti <code>user_question</code>, nu doar keywords.</p>
+      <div class="d-code-block">
+        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+        <pre>curl -s -X POST http://localhost:8002/api/topics \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Baterii cu stare solida",
+    "user_question": "Ce progrese recente exista in bateriile cu stare solida pentru vehicule electrice?",
+    "days_back": 30,
+    "provider": "anthropic",
+    "user_ids": [1]
+  }'</pre>
+      </div>
+      <p style="margin:.4rem 0 0;font-size:.82rem;color:var(--d-muted);">La ce te astepti: ~5–15 articole, summary-uri coerente, cost afisat per run. Set non-determinist.</p>
+    </div>
+
+    <!-- tavily -->
+    <div style="background:rgba(196,92,0,.06);border:1px solid rgba(196,92,0,.2);border-left:3px solid #ea580c;border-radius:.4rem;padding:.65rem .9rem;margin-bottom:.6rem;">
+      <strong style="color:#c2410c;font-size:.86rem;"><span class="d-badge orange">tavily</span> — volum maxim pe keywords</strong>
+      <p style="margin:.3rem 0 .5rem;font-size:.83rem;">Scenariu: vrei <em>cat mai multe</em> articole academice pe o tema, rapid si ieftin. Folosesti <code>keywords</code>.</p>
+      <div class="d-code-block">
+        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+        <pre>curl -s -X POST http://localhost:8002/api/topics \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Celule solare cu perovskit",
+    "keywords": "perovskite solar cells efficiency stability",
+    "days_back": 14,
+    "provider": "tavily",
+    "user_ids": [1]
+  }'</pre>
+      </div>
+      <p style="margin:.4rem 0 0;font-size:.82rem;color:var(--d-muted);">La ce te astepti: ~15–30+ articole de pe domenii academice, ~$0.001/cautare. Summary = snippet brut.</p>
+    </div>
+
+    <!-- searxng -->
+    <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-left:3px solid #7c3aed;border-radius:.4rem;padding:.65rem .9rem;margin-bottom:.6rem;">
+      <strong style="color:#6d28d9;font-size:.86rem;"><span class="d-badge purple">searxng</span> — self-hosted, fara costuri externe</strong>
+      <p style="margin:.3rem 0 .5rem;font-size:.83rem;">Scenariu: lucrezi pe infrastructura ta, fara sa trimiti nimic spre servicii platite.</p>
+      <div class="d-code-block">
+        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+        <pre>curl -s -X POST http://localhost:8002/api/topics \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Corectia erorilor cuantice",
+    "keywords": "quantum error correction surface codes",
+    "days_back": 30,
+    "provider": "searxng",
+    "user_ids": [1]
+  }'</pre>
+      </div>
+      <p style="margin:.4rem 0 0;font-size:.82rem;color:var(--d-muted);">Necesita <code>SEARXNG_BASE_URL</code> + Ollama. La ce te astepti: ~10–25 articole, summary rescris local, cost extern 0.</p>
+    </div>
+
+    <!-- author -->
+    <div style="background:rgba(0,137,123,.06);border:1px solid rgba(0,137,123,.25);border-left:3px solid #00897b;border-radius:.4rem;padding:.65rem .9rem;margin-bottom:.6rem;">
+      <strong style="color:#00695c;font-size:.86rem;"><span class="d-badge teal">author</span> — productia unui cercetator dupa nume</strong>
+      <p style="margin:.3rem 0 .5rem;font-size:.83rem;">Scenariu: vrei <em>toate</em> lucrarile unei persoane. Pui numele in <code>keywords</code> si folosesti o fereastra mare.</p>
+      <div class="d-code-block">
+        <button class="d-copy-btn" onclick="copyCode(this)">copy</button>
+        <pre>curl -s -X POST http://localhost:8002/api/topics \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Productie autor — Simona Raboaca",
+    "keywords": "Simona Raboaca",
+    "days_back": 1825,
+    "provider": "author",
+    "user_ids": [1]
+  }'
+
+# Declanseaza imediat o cautare pentru topicul creat (id = 5, de exemplu)
+curl -s -X POST http://localhost:8002/api/searches/run/5</pre>
+      </div>
+      <p style="margin:.4rem 0 0;font-size:.82rem;color:var(--d-muted);">Fara cheie API. <code>days_back</code> mare (recomandat 365–3650). La ce te astepti: toate lucrarile autorului din fereastra; 0 daca nu e in OpenAlex.</p>
+    </div>
+
+    <p style="font-size:.82rem;color:var(--d-muted);margin:0;">
+      <i class="bi bi-lightbulb me-1"></i>Acelasi topic rulat prin provideri diferiti da seturi diferite — vezi nota
+      „De ce acelasi topic da rezultate diferite in functie de provider" din sectiunea Provideri.
+    </p>
   </div>
 </div>
 </section>
