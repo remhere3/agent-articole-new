@@ -136,10 +136,10 @@ body {
   </div>
   <nav class="d-toc" id="docs-toc">
     <span class="d-toc-title">Cuprins</span>
+    <a href="#providers">Provideri de cautare</a>
     <a href="#overview">Descriere</a>
     <a href="#schemas">Scheme arhitectura</a>
     <a href="#quickstart">Pornire rapida</a>
-    <a href="#providers">Provideri</a>
     <a href="#maximize">Maximizare rezultate</a>
     <a href="#api-users">API Utilizatori</a>
     <a href="#api-topics">API Topicuri</a>
@@ -164,6 +164,480 @@ body {
 
 <!-- ── MAIN ── -->
 <main class="docs-main">
+
+<!-- ══ PROVIDERI ════════════════════════════════════════════ -->
+<section id="providers" class="d-section-anchor">
+
+<!-- Card introductiv: esenta cautarii -->
+<div class="d-card">
+  <div class="d-card-header"><i class="bi bi-compass me-1"></i>Esenta: cum cauta acest agent</div>
+  <div class="d-card-body">
+    <p style="font-size:.9rem;">
+      <strong>Agent Articole nu are un singur motor de cautare — are patru</strong>, si
+      <strong>alegerea providerului este cea mai importanta decizie</strong> pe care o iei pentru un topic.
+      Fiecare provider intreaba o <em>alta lume</em> de date (web deschis, index academic, baza de date
+      bibliografica) si o intreaba <em>altfel</em>. De aceea <strong>acelasi topic poate da rezultate
+      vizibil diferite</strong> in functie de provider — nu e un defect, e exact mecanismul: alegi unealta
+      potrivita intrebarii tale. Restul fluxului e comun tuturor: filtrare stricta pe data
+      (<code>days_back</code>, in doua etape), curatare de watermark-uri, si pastrarea
+      <strong>tuturor</strong> rezultatelor in fiecare rulare (fara deduplicare intre rulari, ca sa poti
+      compara in timp).
+    </p>
+
+    <!-- Cost-awareness -->
+    <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.2);border-left:3px solid #c45c00;border-radius:.4rem;padding:.65rem .9rem;font-size:.86rem;margin-top:.4rem;">
+      <strong style="color:#c45c00;"><i class="bi bi-cash-coin me-1"></i>Costurile au fost luate in calcul din proiectare</strong>
+      <p style="margin:.35rem 0 0;">
+        Cei patru provideri acopera intentionat <strong>tot spectrul de cost</strong>, de la zero la cativa centi
+        pe rulare, ca sa nu fii obligat sa platesti pentru ceea ce poti obtine gratuit:
+      </p>
+      <ul style="margin:.4rem 0 0;padding-left:1.1rem;">
+        <li><strong>Gratuit, fara nicio cheie:</strong> <span class="d-badge teal">author</span> (OpenAlex + CrossRef, API-uri publice) si
+          <span class="d-badge purple">searxng</span> (self-hosted: SearXNG + Ollama pe infrastructura ta) — <strong>cost extern 0</strong>.</li>
+        <li><strong>Foarte ieftin:</strong> <span class="d-badge orange">tavily</span> — ~$0.001/cautare, fara LLM, doar API de cautare.</li>
+        <li><strong>Premium, dar masurat:</strong> <span class="d-badge blue">anthropic</span> — ~$0.01–0.05/rulare. Fiecare run Anthropic
+          <strong>isi calculeaza si afiseaza costul real</strong> in USD (din tokenii input/output ai modelului configurat),
+          ca sa stii exact cat te costa, nu o estimare vaga.</li>
+      </ul>
+      <p style="margin:.4rem 0 0;">
+        In plus, mecanismele de rezilienta (retry cu backoff, circuit breaker per-provider) exista tocmai ca un
+        serviciu picat sa <strong>nu</strong> consume bani/timp in apeluri inutile.
+      </p>
+    </div>
+
+    <!-- La ce e bun fiecare: ghid rapid -->
+    <p style="font-size:.9rem;margin:.75rem 0 .4rem;"><strong><i class="bi bi-signpost-split me-1"></i>La ce e bun fiecare provider (ghid rapid de alegere)</strong></p>
+    <table class="d-table">
+      <thead><tr><th>Provider</th><th>Excelent pentru</th><th>Evita-l cand</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="d-badge blue">anthropic</span></td>
+          <td>Intrebari <strong>tematice</strong> complexe, sinteza pe un subiect, domenii de nisa, intrebari in limbaj natural
+            (<code>user_question</code>). Cele mai coerente summary-uri.</td>
+          <td>Vrei <strong>toata</strong> bibliografia unui autor sau volum mare, reproductibil (e non-determinist).</td>
+        </tr>
+        <tr>
+          <td><span class="d-badge orange">tavily</span></td>
+          <td><strong>Volum maxim</strong> de pe surse garantat academice (lista <code>ACADEMIC_DOMAINS</code>), rapid si la cost minim.</td>
+          <td>Ai nevoie de summary-uri reformulate de un LLM (Tavily intoarce snippet brut).</td>
+        </tr>
+        <tr>
+          <td><span class="d-badge purple">searxng</span></td>
+          <td><strong>Independenta totala</strong>: zero costuri externe si zero date trimise in cloud — totul pe infrastructura ta.</td>
+          <td>Nu ai SearXNG + Ollama instalate, sau vrei viteza/coerenta maxima fara setup local.</td>
+        </tr>
+        <tr>
+          <td><span class="d-badge teal">author</span></td>
+          <td><strong>Monitorizarea productiei unui cercetator</strong> dupa nume — complet, determinist, gratuit. Cazul de utilizare vedeta.</td>
+          <td>Topicul e o <em>tema</em> (nu o persoana) — <code>author</code> nu face cautare tematica.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:.82rem;color:var(--d-muted);margin:.5rem 0 0;">
+      Regula de buzunar: <strong>tema → <span class="d-badge blue">anthropic</span></strong> (sau
+      <span class="d-badge orange">tavily</span> pentru volum) · <strong>persoana →
+      <span class="d-badge teal">author</span></strong> · <strong>fara buget extern →
+      <span class="d-badge purple">searxng</span></strong> sau <span class="d-badge teal">author</span>.
+      Detaliile complete (mecanism, cost, viteza, cand/cum) sunt in tabelele de mai jos.
+    </p>
+  </div>
+</div>
+
+<div class="d-card">
+  <div class="d-card-header"><i class="bi bi-cpu me-1"></i>Provideri de cautare</div>
+  <div class="d-card-body" style="padding:0">
+    <table class="d-table">
+      <thead><tr><th>Provider</th><th>Mecanism</th><th>Cost/cautare</th><th>Viteza</th><th>Necesita</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="d-badge blue">anthropic</span></td>
+          <td>Claude + tool nativ <code>web_search_20250305</code> (max 12 apeluri)</td>
+          <td>~$0.01–0.05</td>
+          <td>15–40s</td>
+          <td><code>ANTHROPIC_API_KEY</code></td>
+        </tr>
+        <tr>
+          <td><span class="d-badge orange">tavily</span></td>
+          <td>API cautare cu parametru <code>days</code> nativ, 2 treceri (academic + general)</td>
+          <td>~$0.001</td>
+          <td>5–15s</td>
+          <td><code>TAVILY_API_KEY</code></td>
+        </tr>
+        <tr>
+          <td><span class="d-badge purple">searxng</span></td>
+          <td>SearXNG cauta → Ollama rezuma local (self-hosted, fara costuri externe)</td>
+          <td>0</td>
+          <td>15–60s</td>
+          <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
+        </tr>
+        <tr>
+          <td><span class="d-badge teal">author</span></td>
+          <td>OpenAlex (author ID → lucrari filtrate) + CrossRef (<code>query.author</code>) in paralel — deduplicare dupa titlu</td>
+          <td>0 (API-uri publice gratuite)</td>
+          <td>3–8s</td>
+          <td>Nimic — fara cheie API</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="d-card-body" style="padding-top:.5rem;display:flex;flex-direction:column;gap:.75rem;">
+
+      <!-- Nota websearch nativ -->
+      <div style="background:rgba(0,68,170,.07);border:1px solid rgba(0,68,170,.2);border-left:3px solid #0044aa;border-radius:.4rem;padding:.65rem .9rem;">
+        <strong style="color:#0044aa;font-size:.84rem;"><i class="bi bi-info-circle me-1"></i>Web search nativ vs. Tavily vs. API academice</strong>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          <strong>Singurul provider cu web search nativ este <code>anthropic</code></strong> — Claude foloseste tool-ul
+          <code>web_search_20250305</code> direct, fara nicio cheie externa suplimentara.
+        </p>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          Modelele Ollama locale (<code>llama3</code>, <code>gemma4:e4b</code>, <code>mistral</code> etc.)
+          <strong>nu au acces la internet</strong> — ele ruleaza 100% local si nu pot cauta nimic pe cont propriu.
+          De aceea Ollama este folosit doar pentru <strong>rezumare si structurare</strong>, nu pentru cautare.
+        </p>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          Providerul <code>searxng</code> <strong>nu are web search nativ in model</strong> —
+          <strong>SearXNG</strong> (self-hosted pe retea) face cautarea web, fara cheie API externa,
+          iar <strong>Ollama</strong> (local) preia rezultatele si le rezuma.
+          Prin urmare, <code>TAVILY_API_KEY</code> nu este necesara pentru <code>searxng</code>, dar
+          <code>SEARXNG_BASE_URL</code> si Ollama local trebuie sa fie disponibile.
+        </p>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          Providerul <code>author</code> <strong>nu face cautare web generica</strong> — interogheaza direct
+          <strong>OpenAlex</strong> (100k req/zi gratuit, open data CC0) si <strong>CrossRef</strong> (gratuit),
+          doua baze de date academice structurate. Cauta articolele unui autor specific dupa nume,
+          cu filtrare garantata pe lista de autori a fiecarui articol. <strong>Nu necesita nicio cheie API.</strong>
+          Recomandat pentru monitorizarea productiei stiintifice a unui cercetator.
+        </p>
+      </div>
+
+      <!-- Nota: cum rezolva 'author' numele cautat -->
+      <div style="background:rgba(0,137,123,.07);border:1px solid rgba(0,137,123,.25);border-left:3px solid #00897b;border-radius:.4rem;padding:.65rem .9rem;">
+        <strong style="color:#00695c;font-size:.84rem;"><i class="bi bi-person-check me-1"></i>Cum rezolva <code>author</code> numele cautat</strong>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          <strong>Curatare cuvinte-zgomot.</strong> Numele topicului poate contine cuvinte care nu fac parte din nume
+          (ex. <code>"articole stiintifice Simona Răboacă"</code>). Inainte de cautare acestea sunt eliminate
+          (<code>articole</code>, <code>stiintifice</code>, <code>lucrari</code> etc.), ramanand doar numele propriu
+          (<code>"Simona Răboacă"</code>) — altfel OpenAlex nu gaseste autorul, iar potrivirea esueaza.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>Insensibil la diacritice.</strong> Bazele de date stocheaza adesea numele fara diacritice
+          (<code>Răboacă</code> → <code>Raboaca</code>). Potrivirea de-diacritizeaza ambele parti
+          (<code>ă/â→a, î→i, ș→s, ț→t</code>), deci numele romanesti se potrivesc corect.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>CrossRef pe relevanta.</strong> Interogarea CrossRef foloseste relevanta (nu sortare dupa data),
+          ca lucrarile reale ale autorului sa apara primele; lista finala e re-sortata pe data dupa deduplicare.
+          Ambele surse (OpenAlex + CrossRef) sunt <strong>paginate cu cursor</strong> — vezi
+          <code>AUTHOR_MAX_WORKS</code> / <code>AUTHOR_MAX_PROFILES</code>.
+        </p>
+      </div>
+
+      <!-- Nota generala: de ce acelasi topic da rezultate diferite intre TOTI providerii -->
+      <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.25);border-left:3px solid #7c3aed;border-radius:.4rem;padding:.65rem .9rem;">
+        <strong style="color:#6d28d9;font-size:.84rem;"><i class="bi bi-diagram-3 me-1"></i>De ce <em>acelasi topic</em> da rezultate diferite in functie de provider</strong>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          Daca rulezi acelasi topic prin <code>anthropic</code>, <code>tavily</code>, <code>searxng</code> si
+          <code>author</code>, vei obtine <strong>patru seturi de articole diferite</strong> — uneori foarte diferite.
+          Asta e <strong>intentionat si normal</strong>: nu cauta in acelasi loc si nu cauta in acelasi fel.
+          Diferenta vine din patru axe, nu din vreun bug:
+        </p>
+        <ol style="margin:.45rem 0 0;padding-left:1.2rem;font-size:.84rem;">
+          <li><strong>Sursa de date difera.</strong> <code>anthropic</code> si <code>searxng</code> interogheaza
+            <em>web-ul deschis</em> (motoare generale); <code>tavily</code> interogheaza un index de cautare optimizat,
+            restrans la <em>domenii academice</em> (<code>ACADEMIC_DOMAINS</code>); <code>author</code> nu atinge web-ul
+            deloc — citeste din <em>baze de date bibliografice structurate</em> (OpenAlex + CrossRef). Un articol
+            existent intr-o sursa poate lipsi cu totul din alta (ex. o conferinta locala apare pe web, dar nu in OpenAlex;
+            un preprint indexat in CrossRef poate sa nu fie scos in fata de motoarele web).</li>
+          <li><strong>Cine decide ce se listeaza.</strong> La <code>anthropic</code>, <em>modelul</em> alege ce cauta si ce
+            raporteaza — un esantion „best effort". La <code>tavily</code>/<code>searxng</code>, lista vine din ce
+            intorc motoarele pentru query (ranking-ul lor). La <code>author</code>, nu exista „alegere": se descarca
+            <strong>tot</strong> ce e atribuit autorului in fereastra de timp.</li>
+          <li><strong>Determinism.</strong> <code>anthropic</code> e <strong>non-determinist</strong> — doua rulari pot da
+            seturi usor diferite, fiindca implica un LLM si cautari web live. <code>tavily</code>/<code>searxng</code>
+            variaza in masura in care variaza indexul/motoarele. <code>author</code> e practic <strong>determinist</strong>:
+            aceeasi interogare → acelasi set (pana la actualizarea bazelor).</li>
+          <li><strong>Procesarea schimba si <em>cum arata</em> acelasi articol.</strong> Chiar pentru un articol gasit de
+            mai multi provideri, titlul si rezumatul pot diferi: <code>anthropic</code> si <code>searxng</code> trec
+            rezultatul printr-un LLM care <em>rescrie</em> summary-ul; <code>tavily</code> da snippet-ul brut; iar
+            <code>author</code> aduce <em>abstractul din baza de date</em>. Acelasi continut, ambalaj diferit.</li>
+        </ol>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>Ce <em>nu</em> explica diferenta:</strong> filtrarea pe data. Toti providerii aplica aceeasi fereastra
+          <code>days_back</code>, in doua etape garantate (vezi nota „Filtrare data stricta"). Daca un provider
+          intoarce mai putine articole, cauza e <strong>acoperirea sursei</strong>, nu filtrul de timp.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          Cazul cel mai vizibil — <code>anthropic</code> vs <code>author</code> pe un <strong>nume de autor</strong> —
+          e detaliat mai jos.
+        </p>
+      </div>
+
+      <!-- Nota: de ce anthropic si author dau rezultate diferite -->
+      <div style="background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);border-left:3px solid #dc2626;border-radius:.4rem;padding:.65rem .9rem;">
+        <strong style="color:#b91c1c;font-size:.84rem;"><i class="bi bi-exclamation-triangle me-1"></i>Aprofundare: de ce <code>anthropic</code> si <code>author</code> dau numere diferite pentru acelasi topic</strong>
+        <p style="margin:.35rem 0 0;font-size:.84rem;">
+          Pentru acelasi topic — mai ales cand e un <strong>nume de autor</strong> — <code>anthropic</code> intoarce
+          de regula <strong>mai putine</strong> articole decat <code>author</code>, iar setul poate diferi de la o
+          rulare la alta. <strong>Nu este un bug</strong>: sunt doua mecanisme fundamental diferite.
+        </p>
+        <ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.84rem;">
+          <li><code>anthropic</code> = <strong>cautare web</strong> via Claude. Trateaza query-ul ca <em>topic</em>,
+            face cateva cautari pe motoare generale si raporteaza doar ce gaseste si <em>decide sa listeze</em> —
+            un esantion "best effort", <strong>non-determinist</strong> (rezultatele variaza intre rulari).
+            Tinde sa se opreasca dupa cateva cautari, deci nici bugetul marit de cautari nu garanteaza acoperire completa.</li>
+          <li><code>author</code> = <strong>interogare de catalog</strong>. OpenAlex/CrossRef indexeaza direct
+            productia autorului: rezolva numele la un author ID si descarca <strong>toate</strong> lucrarile din
+            fereastra <code>days_back</code>. Determinist si cvasi-complet.</li>
+        </ul>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>Tratarea numelor in <code>anthropic</code> (netraducere + diacritice).</strong>
+          Promptul <strong>nu mai traduce numele proprii</strong> in engleza — traduce doar termenii
+          <em>descriptivi</em> ai topicului. Un nume tradus sau alterat (ex. transliterat) devine o alta
+          interogare si rateaza articolele autorului real.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          In plus, <strong>diacriticele romanesti</strong> (<code>ș î ă ț â</code>) fac numele fragile pe web:
+          multe indexuri stocheaza forma <em>fara</em> diacritice (ex. <code>Șofîlcă</code> este indexat
+          frecvent ca <code>Sofilca</code>), iar unele surse pastreaza forma cu diacritice. De aceea
+          promptul cere modelului sa incerce <strong>variante de nume</strong>: cu si fara diacritice,
+          ordine diferita (<em>Prenume Nume</em> / <em>Nume Prenume</em>) si forma cu initiala
+          (<code>N. Sofilca</code>). Astfel acoperirea creste, dar — fiind tot cautare web — ramane partiala
+          fata de <code>author</code>.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>Exemplu real</strong> (topic "articole Nicolae Șofîlcă", <code>days_back=3650</code>):
+          <code>author</code> → <strong>12 articole</strong>; <code>anthropic</code> → <strong>5</strong> (toate
+          un subset al celor 12; intr-o alta rulare 4, set partial diferit, incluzand 2 publicatii locale / de
+          conferinta care nu apar in OpenAlex/CrossRef). Filtrarea pe data <strong>nu</strong> este cauza —
+          ambele folosesc aceeasi fereastra <code>days_back</code>; diferenta vine pur din acoperirea sursei.
+        </p>
+        <p style="margin:.45rem 0 0;font-size:.84rem;">
+          <strong>Recomandare:</strong> pentru "toate articolele autorului X" foloseste <code>author</code>
+          (complet, gratuit, determinist); pentru un topic <em>tematic</em> foloseste <code>anthropic</code>
+          (web search-ul exceleaza la teme, nu la enumerarea bibliografiei unui autor).
+        </p>
+      </div>
+
+      <!-- Tabel cine cauta vs cine proceseaza -->
+      <table class="d-table" style="margin-top:.25rem;">
+        <thead>
+          <tr><th>Provider</th><th>Cine cauta pe web</th><th>Cine proceseaza / rezuma</th><th>TAVILY_API_KEY necesara?</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="d-badge blue">anthropic</span></td>
+            <td>Claude (<code>web_search_20250305</code> nativ)</td>
+            <td>Claude</td>
+            <td><span class="d-badge gray">Nu</span></td>
+          </tr>
+          <tr>
+            <td><span class="d-badge orange">tavily</span></td>
+            <td>Tavily API</td>
+            <td>Python direct (fara LLM)</td>
+            <td><span class="d-badge red">Da</span></td>
+          </tr>
+          <tr>
+            <td><span class="d-badge purple">searxng</span></td>
+            <td>SearXNG self-hosted (fara cheie API)</td>
+            <td>Ollama local</td>
+            <td><span class="d-badge gray">Nu</span> (<code>SEARXNG_BASE_URL</code>)</td>
+          </tr>
+          <tr>
+            <td><span class="d-badge teal">author</span></td>
+            <td>OpenAlex API + CrossRef API (baze de date academice, nu cautare web)</td>
+            <td>Python direct (fara LLM)</td>
+            <td><span class="d-badge gray">Nu</span> (nicio cheie necesara)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Ollama Cloud -->
+      <div style="background:rgba(26,107,74,.07);border:1px solid rgba(26,107,74,.2);border-left:3px solid #1a6b4a;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
+        <strong style="color:#1a6b4a;"><i class="bi bi-cloud me-1"></i>Ollama Cloud (cu API key)</strong><br>
+        Poti folosi <strong>Ollama Cloud</strong> (inferenta remote, fara GPU local) setand in <code>.env</code>:
+        <div style="margin:.45rem 0;background:#1a1a2e;border-radius:.35rem;padding:.5rem .8rem;font-family:'Inconsolata',monospace;font-size:.82rem;color:#e2e8f0;">
+          OLLAMA_BASE_URL=https://api.ollama.com<br>
+          OLLAMA_MODEL=gemma4:e4b<br>
+          OLLAMA_API_KEY=&lt;cheia_ta_ollama_cloud&gt;
+        </div>
+        Aplicatia detecteaza automat daca <code>OLLAMA_BASE_URL</code> este <code>https://</code> si foloseste
+        endpoint-ul OpenAI-compatible (<code>/v1/chat/completions</code> cu <code>Authorization: Bearer</code>)
+        in loc de endpoint-ul local (<code>/api/generate</code>).<br>
+        <strong>Atentie:</strong> si Ollama Cloud necesita <code>TAVILY_API_KEY</code> — modelul nu are web search nativ.
+      </div>
+
+      <!-- Tabel comparatie completa -->
+      <div style="margin-top:.25rem;">
+        <p style="font-size:.84rem;margin-bottom:.5rem;"><strong>Comparatie completa cei 4 provideri:</strong></p>
+        <table class="d-table">
+          <thead>
+            <tr>
+              <th style="width:15%"></th>
+              <th style="background:#172554;color:#93c5fd;font-size:.8rem;letter-spacing:.06em;text-align:center;">
+                <i class="bi bi-stars me-1"></i>ANTHROPIC
+              </th>
+              <th style="background:#78350f;color:#fde68a;font-size:.8rem;letter-spacing:.06em;text-align:center;">
+                <i class="bi bi-search me-1"></i>TAVILY
+              </th>
+              <th style="background:#2d1b4e;color:#ddd6fe;font-size:.8rem;letter-spacing:.06em;text-align:center;">
+                <i class="bi bi-search me-1"></i>SEARXNG
+              </th>
+              <th style="background:#004d40;color:#80cbc4;font-size:.8rem;letter-spacing:.06em;text-align:center;">
+                <i class="bi bi-person-lines-fill me-1"></i>AUTHOR
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Sursa date</strong></td>
+              <td>Web general (via <code>web_search_20250305</code> nativ, max 12 apeluri)</td>
+              <td>Tavily API</td>
+              <td>SearXNG API (self-hosted, retea locala)</td>
+              <td>OpenAlex API + CrossRef API (baze de date academice structurate)</td>
+            </tr>
+            <tr>
+              <td><strong>Proceseaza rezultatele</strong></td>
+              <td>Claude — sintetizeaza, extrage, scrie summary-uri</td>
+              <td>Python direct — extrage titlu, URL, data, primele 600 chars din snippet</td>
+              <td>Ollama local — rescrie summary-urile cu LLM</td>
+              <td>Python direct — abstractele vin direct din baza de date</td>
+            </tr>
+            <tr>
+              <td><strong>LLM implicat</strong></td>
+              <td>Da — Claude Sonnet (cloud)</td>
+              <td>Nu</td>
+              <td>Da — llama3, gemma4, mistral etc. (local)</td>
+              <td>Nu</td>
+            </tr>
+            <tr>
+              <td><strong>Controlul surselor</strong></td>
+              <td>Sugestie in prompt <em>(negarantat)</em></td>
+              <td>Lista exacta <code>ACADEMIC_DOMAINS</code></td>
+              <td>Motoarele configurate in SearXNG</td>
+              <td>Filtrare exacta dupa <code>authorships.author.id</code> in OpenAlex + verificare lista autori in CrossRef</td>
+            </tr>
+            <tr>
+              <td><strong>Rezultate tipice / run</strong></td>
+              <td>5–15 articole</td>
+              <td>15–30+ articole</td>
+              <td>10–25 articole</td>
+              <td>Toate lucrarile autorului din fereastra <code>days_back</code> (poate fi 0 daca autorul nu e in OpenAlex)</td>
+            </tr>
+            <tr>
+              <td><strong>Calitate summary-uri</strong></td>
+              <td>Foarte buna — Claude scrie in limbaj natural coerent</td>
+              <td>Snippet brut, nereformat</td>
+              <td>Buna — LLM local rescrie</td>
+              <td>Abstract complet din baza de date (acolo unde exista)</td>
+            </tr>
+            <tr>
+              <td><strong>Cost / run</strong></td>
+              <td>~$0.01–0.05 (tokens Anthropic)</td>
+              <td>~$0.001 (doar Tavily)</td>
+              <td>0 (self-hosted)</td>
+              <td>0 (API-uri publice gratuite)</td>
+            </tr>
+            <tr>
+              <td><strong>Viteza</strong></td>
+              <td>15–90s</td>
+              <td>5–15s</td>
+              <td>15–60s</td>
+              <td>3–8s</td>
+            </tr>
+            <tr>
+              <td><strong>Necesita</strong></td>
+              <td><code>ANTHROPIC_API_KEY</code></td>
+              <td><code>TAVILY_API_KEY</code></td>
+              <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
+              <td>Nimic — fara cheie API</td>
+            </tr>
+            <tr>
+              <td><strong>Cand il folosesti</strong></td>
+              <td>Intrebari complexe, sinteza tematica, domenii nise</td>
+              <td>Volum maxim, surse garantat academice, viteza, cost minim</td>
+              <td>Self-hosted complet, fara costuri API externe</td>
+              <td><strong>Monitorizare productie stiintifica a unui autor specific</strong> — articolele publicate de o persoana</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Cum si cand folosesti fiecare provider, in detaliu -->
+      <div style="margin-top:.25rem;">
+        <p style="font-size:.9rem;margin-bottom:.5rem;"><strong><i class="bi bi-tools me-1"></i>Cum si cand folosesti fiecare provider — in detaliu</strong></p>
+
+        <!-- anthropic -->
+        <div style="background:rgba(0,68,170,.06);border:1px solid rgba(0,68,170,.2);border-left:3px solid #2563eb;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;margin-bottom:.55rem;">
+          <strong style="color:#1d4ed8;"><span class="d-badge blue">anthropic</span> — cautare web inteligenta cu Claude</strong>
+          <p style="margin:.35rem 0 0;"><strong>Cum functioneaza:</strong> Claude primeste topicul tau si foloseste tool-ul nativ
+            <code>web_search_20250305</code> ca sa faca pana la ~12 cautari web, apoi citeste, filtreaza pe data si
+            <em>scrie</em> summary-uri coerente. E singurul provider care „gandeste" peste rezultate.</p>
+          <p style="margin:.35rem 0 0;"><strong>Cum il configurezi:</strong> setezi doar <code>ANTHROPIC_API_KEY</code> in
+            <code>.env</code>; modelul vine din <code>ANTHROPIC_MODEL</code>. La crearea topicului alegi
+            <code>provider: "anthropic"</code>.</p>
+          <p style="margin:.35rem 0 0;"><strong>Cum formulezi topicul:</strong> da-i o <em>tema</em> sau o intrebare in limbaj
+            natural in <code>user_question</code> (ex. „ce progrese recente exista in bateriile cu stare solida?").
+            Aici exceleaza — nu la liste exhaustive.</p>
+          <p style="margin:.35rem 0 0;"><strong>La ce sa te astepti:</strong> 5–15 articole de calitate, summary-uri foarte bune,
+            <strong>cost afisat per run</strong>, dar set non-determinist (variaza intre rulari).</p>
+        </div>
+
+        <!-- tavily -->
+        <div style="background:rgba(196,92,0,.06);border:1px solid rgba(196,92,0,.2);border-left:3px solid #ea580c;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;margin-bottom:.55rem;">
+          <strong style="color:#c2410c;"><span class="d-badge orange">tavily</span> — volum academic rapid si ieftin</strong>
+          <p style="margin:.35rem 0 0;"><strong>Cum functioneaza:</strong> apeleaza API-ul Tavily cu parametrul nativ
+            <code>days=N</code> si face <strong>2 treceri</strong> (o cautare „academica" + una „generala"), restranse la
+            domeniile din <code>ACADEMIC_DOMAINS</code>. Fara LLM: extrage titlu, URL, data si snippet direct.</p>
+          <p style="margin:.35rem 0 0;"><strong>Cum il configurezi:</strong> <code>TAVILY_API_KEY</code> in <code>.env</code>,
+            <code>provider: "tavily"</code> pe topic.</p>
+          <p style="margin:.35rem 0 0;"><strong>Cum formulezi topicul:</strong> cuvinte-cheie clare in <code>keywords</code>; e ideal
+            cand vrei <em>multe</em> rezultate pe o tema, nu sinteza.</p>
+          <p style="margin:.35rem 0 0;"><strong>La ce sa te astepti:</strong> 15–30+ articole, foarte rapid (5–15s), ~$0.001/cautare,
+            dar summary = snippet brut (nereformulat).</p>
+        </div>
+
+        <!-- searxng -->
+        <div style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-left:3px solid #7c3aed;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;margin-bottom:.55rem;">
+          <strong style="color:#6d28d9;"><span class="d-badge purple">searxng</span> — self-hosted, zero cloud</strong>
+          <p style="margin:.35rem 0 0;"><strong>Cum functioneaza:</strong> instanta ta <strong>SearXNG</strong> face cautarea web
+            (agregheaza motoare), iar <strong>Ollama</strong> (local sau Cloud) <em>rezuma</em> rezultatele. Modelul Ollama
+            nu cauta singur pe net — doar proceseaza. Filtrarea pe data se face client-side.</p>
+          <p style="margin:.35rem 0 0;"><strong>Cum il configurezi:</strong> <code>SEARXNG_BASE_URL</code> + un Ollama disponibil
+            (<code>OLLAMA_BASE_URL</code>/<code>OLLAMA_MODEL</code>; pentru Cloud, vezi nota de mai sus). Fara cheie de cautare.</p>
+          <p style="margin:.35rem 0 0;"><strong>Cand il alegi:</strong> cand vrei <strong>control si confidentialitate totala</strong>
+            (nimic nu pleaca spre servicii platite) sau lucrezi izolat de internetul comercial.</p>
+          <p style="margin:.35rem 0 0;"><strong>La ce sa te astepti:</strong> 10–25 articole, summary-uri rescrise decent de LLM-ul local,
+            cost extern 0, dar viteza/coerenta depind de hardware-ul si motoarele tale (15–60s).</p>
+        </div>
+
+        <!-- author -->
+        <div style="background:rgba(0,137,123,.06);border:1px solid rgba(0,137,123,.25);border-left:3px solid #00897b;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
+          <strong style="color:#00695c;"><span class="d-badge teal">author</span> — bibliografia completa a unui cercetator</strong>
+          <p style="margin:.35rem 0 0;"><strong>Cum functioneaza:</strong> rezolva numele la un <em>author ID</em> in OpenAlex si
+            interogheaza in paralel OpenAlex (lucrari filtrate pe ID) + CrossRef (<code>query.author</code>), apoi
+            deduplica dupa titlu si sorteaza pe data. Nu e cautare web — e interogare de catalog.</p>
+          <p style="margin:.35rem 0 0;"><strong>Cum il configurezi:</strong> <strong>nimic</strong> — fara nicio cheie API.
+            Optional <code>AUTHOR_MAX_WORKS</code> / <code>AUTHOR_MAX_PROFILES</code> pentru volum.</p>
+          <p style="margin:.35rem 0 0;"><strong>Cum formulezi topicul:</strong> pune <strong>numele persoanei</strong> in topic
+            (ex. „articole Simona Răboacă"). Cuvintele-zgomot („articole", „stiintifice") sunt curatate automat, iar
+            potrivirea e insensibila la diacritice.</p>
+          <p style="margin:.35rem 0 0;"><strong>La ce sa te astepti:</strong> <strong>toate</strong> lucrarile autorului din fereastra
+            <code>days_back</code>, determinist, gratuit, foarte rapid (3–8s). 0 rezultate daca autorul nu e indexat in OpenAlex.</p>
+        </div>
+      </div>
+
+      <!-- Nota filtrare data -->
+      <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.2);border-left:3px solid #c45c00;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
+        <strong style="color:#c45c00;"><i class="bi bi-calendar-check me-1"></i>Filtrare data stricta — doua etape garantate</strong><br>
+        <strong>Etapa 1 (API nativ):</strong> <code>days=N</code> la Tavily; prompt cu data explicita la Claude; filtru client-side la SearXNG (nu suporta <code>time_range</code> pe toate motoarele).<br>
+        <strong>Etapa 2 (Python post-procesare):</strong> dupa ce LLM-ul sau API-ul returneaza articolele, Python re-valideaza fiecare data cu <code>parse_date()</code> si exclude strict orice articol cu <code>pub_dt &lt; cutoff</code>. Aplicat la toti providerii.<br>
+        Articolele fara data confirmata sunt acceptate doar daca provin de pe domenii academice recunoscute (lista editabila in <code>config/academic_domains.txt</code>).
+        Summary-urile sunt curatate automat de watermarks IEEE (<code>strip_watermarks()</code>). Toate aceste utilitare sunt consolidate in <code>app/services/_utils.py</code>.
+      </div>
+
+    </div>
+  </div>
+</div>
+</section>
 
 <!-- ══ DESCRIERE ════════════════════════════════════════════ -->
 <section id="overview" class="d-section-anchor">
@@ -593,300 +1067,6 @@ body {
       <li>Deschide browser la <code>http://localhost:8002</code></li>
       <li>Adauga un utilizator → creeaza un topic → apasa <i class="bi bi-play-fill"></i> pentru prima cautare</li>
     </ol>
-  </div>
-</div>
-</section>
-
-<!-- ══ PROVIDERI ════════════════════════════════════════════ -->
-<section id="providers" class="d-section-anchor">
-<div class="d-card">
-  <div class="d-card-header"><i class="bi bi-cpu me-1"></i>Provideri de cautare</div>
-  <div class="d-card-body" style="padding:0">
-    <table class="d-table">
-      <thead><tr><th>Provider</th><th>Mecanism</th><th>Cost/cautare</th><th>Viteza</th><th>Necesita</th></tr></thead>
-      <tbody>
-        <tr>
-          <td><span class="d-badge blue">anthropic</span></td>
-          <td>Claude + tool nativ <code>web_search_20250305</code> (max 12 apeluri)</td>
-          <td>~$0.01–0.05</td>
-          <td>15–40s</td>
-          <td><code>ANTHROPIC_API_KEY</code></td>
-        </tr>
-        <tr>
-          <td><span class="d-badge orange">tavily</span></td>
-          <td>API cautare cu parametru <code>days</code> nativ, 2 treceri (academic + general)</td>
-          <td>~$0.001</td>
-          <td>5–15s</td>
-          <td><code>TAVILY_API_KEY</code></td>
-        </tr>
-        <tr>
-          <td><span class="d-badge purple">searxng</span></td>
-          <td>SearXNG cauta → Ollama rezuma local (self-hosted, fara costuri externe)</td>
-          <td>0</td>
-          <td>15–60s</td>
-          <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
-        </tr>
-        <tr>
-          <td><span class="d-badge teal">author</span></td>
-          <td>OpenAlex (author ID → lucrari filtrate) + CrossRef (<code>query.author</code>) in paralel — deduplicare dupa titlu</td>
-          <td>0 (API-uri publice gratuite)</td>
-          <td>3–8s</td>
-          <td>Nimic — fara cheie API</td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="d-card-body" style="padding-top:.5rem;display:flex;flex-direction:column;gap:.75rem;">
-
-      <!-- Nota websearch nativ -->
-      <div style="background:rgba(0,68,170,.07);border:1px solid rgba(0,68,170,.2);border-left:3px solid #0044aa;border-radius:.4rem;padding:.65rem .9rem;">
-        <strong style="color:#0044aa;font-size:.84rem;"><i class="bi bi-info-circle me-1"></i>Web search nativ vs. Tavily vs. API academice</strong>
-        <p style="margin:.35rem 0 0;font-size:.84rem;">
-          <strong>Singurul provider cu web search nativ este <code>anthropic</code></strong> — Claude foloseste tool-ul
-          <code>web_search_20250305</code> direct, fara nicio cheie externa suplimentara.
-        </p>
-        <p style="margin:.35rem 0 0;font-size:.84rem;">
-          Modelele Ollama locale (<code>llama3</code>, <code>gemma4:e4b</code>, <code>mistral</code> etc.)
-          <strong>nu au acces la internet</strong> — ele ruleaza 100% local si nu pot cauta nimic pe cont propriu.
-          De aceea Ollama este folosit doar pentru <strong>rezumare si structurare</strong>, nu pentru cautare.
-        </p>
-        <p style="margin:.35rem 0 0;font-size:.84rem;">
-          Providerul <code>searxng</code> <strong>nu are web search nativ in model</strong> —
-          <strong>SearXNG</strong> (self-hosted pe retea) face cautarea web, fara cheie API externa,
-          iar <strong>Ollama</strong> (local) preia rezultatele si le rezuma.
-          Prin urmare, <code>TAVILY_API_KEY</code> nu este necesara pentru <code>searxng</code>, dar
-          <code>SEARXNG_BASE_URL</code> si Ollama local trebuie sa fie disponibile.
-        </p>
-        <p style="margin:.35rem 0 0;font-size:.84rem;">
-          Providerul <code>author</code> <strong>nu face cautare web generica</strong> — interogheaza direct
-          <strong>OpenAlex</strong> (100k req/zi gratuit, open data CC0) si <strong>CrossRef</strong> (gratuit),
-          doua baze de date academice structurate. Cauta articolele unui autor specific dupa nume,
-          cu filtrare garantata pe lista de autori a fiecarui articol. <strong>Nu necesita nicio cheie API.</strong>
-          Recomandat pentru monitorizarea productiei stiintifice a unui cercetator.
-        </p>
-      </div>
-
-      <!-- Nota: cum rezolva 'author' numele cautat -->
-      <div style="background:rgba(0,137,123,.07);border:1px solid rgba(0,137,123,.25);border-left:3px solid #00897b;border-radius:.4rem;padding:.65rem .9rem;">
-        <strong style="color:#00695c;font-size:.84rem;"><i class="bi bi-person-check me-1"></i>Cum rezolva <code>author</code> numele cautat</strong>
-        <p style="margin:.35rem 0 0;font-size:.84rem;">
-          <strong>Curatare cuvinte-zgomot.</strong> Numele topicului poate contine cuvinte care nu fac parte din nume
-          (ex. <code>"articole stiintifice Simona Răboacă"</code>). Inainte de cautare acestea sunt eliminate
-          (<code>articole</code>, <code>stiintifice</code>, <code>lucrari</code> etc.), ramanand doar numele propriu
-          (<code>"Simona Răboacă"</code>) — altfel OpenAlex nu gaseste autorul, iar potrivirea esueaza.
-        </p>
-        <p style="margin:.45rem 0 0;font-size:.84rem;">
-          <strong>Insensibil la diacritice.</strong> Bazele de date stocheaza adesea numele fara diacritice
-          (<code>Răboacă</code> → <code>Raboaca</code>). Potrivirea de-diacritizeaza ambele parti
-          (<code>ă/â→a, î→i, ș→s, ț→t</code>), deci numele romanesti se potrivesc corect.
-        </p>
-        <p style="margin:.45rem 0 0;font-size:.84rem;">
-          <strong>CrossRef pe relevanta.</strong> Interogarea CrossRef foloseste relevanta (nu sortare dupa data),
-          ca lucrarile reale ale autorului sa apara primele; lista finala e re-sortata pe data dupa deduplicare.
-          Ambele surse (OpenAlex + CrossRef) sunt <strong>paginate cu cursor</strong> — vezi
-          <code>AUTHOR_MAX_WORKS</code> / <code>AUTHOR_MAX_PROFILES</code>.
-        </p>
-      </div>
-
-      <!-- Nota: de ce anthropic si author dau rezultate diferite -->
-      <div style="background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);border-left:3px solid #dc2626;border-radius:.4rem;padding:.65rem .9rem;">
-        <strong style="color:#b91c1c;font-size:.84rem;"><i class="bi bi-exclamation-triangle me-1"></i>De ce <code>anthropic</code> si <code>author</code> dau numere diferite pentru acelasi topic</strong>
-        <p style="margin:.35rem 0 0;font-size:.84rem;">
-          Pentru acelasi topic — mai ales cand e un <strong>nume de autor</strong> — <code>anthropic</code> intoarce
-          de regula <strong>mai putine</strong> articole decat <code>author</code>, iar setul poate diferi de la o
-          rulare la alta. <strong>Nu este un bug</strong>: sunt doua mecanisme fundamental diferite.
-        </p>
-        <ul style="margin:.4rem 0 0;padding-left:1.1rem;font-size:.84rem;">
-          <li><code>anthropic</code> = <strong>cautare web</strong> via Claude. Trateaza query-ul ca <em>topic</em>,
-            face cateva cautari pe motoare generale si raporteaza doar ce gaseste si <em>decide sa listeze</em> —
-            un esantion "best effort", <strong>non-determinist</strong> (rezultatele variaza intre rulari).
-            Tinde sa se opreasca dupa cateva cautari, deci nici bugetul marit de cautari nu garanteaza acoperire completa.</li>
-          <li><code>author</code> = <strong>interogare de catalog</strong>. OpenAlex/CrossRef indexeaza direct
-            productia autorului: rezolva numele la un author ID si descarca <strong>toate</strong> lucrarile din
-            fereastra <code>days_back</code>. Determinist si cvasi-complet.</li>
-        </ul>
-        <p style="margin:.45rem 0 0;font-size:.84rem;">
-          <strong>Tratarea numelor in <code>anthropic</code> (netraducere + diacritice).</strong>
-          Promptul <strong>nu mai traduce numele proprii</strong> in engleza — traduce doar termenii
-          <em>descriptivi</em> ai topicului. Un nume tradus sau alterat (ex. transliterat) devine o alta
-          interogare si rateaza articolele autorului real.
-        </p>
-        <p style="margin:.45rem 0 0;font-size:.84rem;">
-          In plus, <strong>diacriticele romanesti</strong> (<code>ș î ă ț â</code>) fac numele fragile pe web:
-          multe indexuri stocheaza forma <em>fara</em> diacritice (ex. <code>Șofîlcă</code> este indexat
-          frecvent ca <code>Sofilca</code>), iar unele surse pastreaza forma cu diacritice. De aceea
-          promptul cere modelului sa incerce <strong>variante de nume</strong>: cu si fara diacritice,
-          ordine diferita (<em>Prenume Nume</em> / <em>Nume Prenume</em>) si forma cu initiala
-          (<code>N. Sofilca</code>). Astfel acoperirea creste, dar — fiind tot cautare web — ramane partiala
-          fata de <code>author</code>.
-        </p>
-        <p style="margin:.45rem 0 0;font-size:.84rem;">
-          <strong>Exemplu real</strong> (topic "articole Nicolae Șofîlcă", <code>days_back=3650</code>):
-          <code>author</code> → <strong>12 articole</strong>; <code>anthropic</code> → <strong>5</strong> (toate
-          un subset al celor 12; intr-o alta rulare 4, set partial diferit, incluzand 2 publicatii locale / de
-          conferinta care nu apar in OpenAlex/CrossRef). Filtrarea pe data <strong>nu</strong> este cauza —
-          ambele folosesc aceeasi fereastra <code>days_back</code>; diferenta vine pur din acoperirea sursei.
-        </p>
-        <p style="margin:.45rem 0 0;font-size:.84rem;">
-          <strong>Recomandare:</strong> pentru "toate articolele autorului X" foloseste <code>author</code>
-          (complet, gratuit, determinist); pentru un topic <em>tematic</em> foloseste <code>anthropic</code>
-          (web search-ul exceleaza la teme, nu la enumerarea bibliografiei unui autor).
-        </p>
-      </div>
-
-      <!-- Tabel cine cauta vs cine proceseaza -->
-      <table class="d-table" style="margin-top:.25rem;">
-        <thead>
-          <tr><th>Provider</th><th>Cine cauta pe web</th><th>Cine proceseaza / rezuma</th><th>TAVILY_API_KEY necesara?</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span class="d-badge blue">anthropic</span></td>
-            <td>Claude (<code>web_search_20250305</code> nativ)</td>
-            <td>Claude</td>
-            <td><span class="d-badge gray">Nu</span></td>
-          </tr>
-          <tr>
-            <td><span class="d-badge orange">tavily</span></td>
-            <td>Tavily API</td>
-            <td>Python direct (fara LLM)</td>
-            <td><span class="d-badge red">Da</span></td>
-          </tr>
-          <tr>
-            <td><span class="d-badge purple">searxng</span></td>
-            <td>SearXNG self-hosted (fara cheie API)</td>
-            <td>Ollama local</td>
-            <td><span class="d-badge gray">Nu</span> (<code>SEARXNG_BASE_URL</code>)</td>
-          </tr>
-          <tr>
-            <td><span class="d-badge teal">author</span></td>
-            <td>OpenAlex API + CrossRef API (baze de date academice, nu cautare web)</td>
-            <td>Python direct (fara LLM)</td>
-            <td><span class="d-badge gray">Nu</span> (nicio cheie necesara)</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Ollama Cloud -->
-      <div style="background:rgba(26,107,74,.07);border:1px solid rgba(26,107,74,.2);border-left:3px solid #1a6b4a;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
-        <strong style="color:#1a6b4a;"><i class="bi bi-cloud me-1"></i>Ollama Cloud (cu API key)</strong><br>
-        Poti folosi <strong>Ollama Cloud</strong> (inferenta remote, fara GPU local) setand in <code>.env</code>:
-        <div style="margin:.45rem 0;background:#1a1a2e;border-radius:.35rem;padding:.5rem .8rem;font-family:'Inconsolata',monospace;font-size:.82rem;color:#e2e8f0;">
-          OLLAMA_BASE_URL=https://api.ollama.com<br>
-          OLLAMA_MODEL=gemma4:e4b<br>
-          OLLAMA_API_KEY=&lt;cheia_ta_ollama_cloud&gt;
-        </div>
-        Aplicatia detecteaza automat daca <code>OLLAMA_BASE_URL</code> este <code>https://</code> si foloseste
-        endpoint-ul OpenAI-compatible (<code>/v1/chat/completions</code> cu <code>Authorization: Bearer</code>)
-        in loc de endpoint-ul local (<code>/api/generate</code>).<br>
-        <strong>Atentie:</strong> si Ollama Cloud necesita <code>TAVILY_API_KEY</code> — modelul nu are web search nativ.
-      </div>
-
-      <!-- Tabel comparatie completa -->
-      <div style="margin-top:.25rem;">
-        <p style="font-size:.84rem;margin-bottom:.5rem;"><strong>Comparatie completa cei 4 provideri:</strong></p>
-        <table class="d-table">
-          <thead>
-            <tr>
-              <th style="width:15%"></th>
-              <th style="background:#172554;color:#93c5fd;font-size:.8rem;letter-spacing:.06em;text-align:center;">
-                <i class="bi bi-stars me-1"></i>ANTHROPIC
-              </th>
-              <th style="background:#78350f;color:#fde68a;font-size:.8rem;letter-spacing:.06em;text-align:center;">
-                <i class="bi bi-search me-1"></i>TAVILY
-              </th>
-              <th style="background:#2d1b4e;color:#ddd6fe;font-size:.8rem;letter-spacing:.06em;text-align:center;">
-                <i class="bi bi-search me-1"></i>SEARXNG
-              </th>
-              <th style="background:#004d40;color:#80cbc4;font-size:.8rem;letter-spacing:.06em;text-align:center;">
-                <i class="bi bi-person-lines-fill me-1"></i>AUTHOR
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Sursa date</strong></td>
-              <td>Web general (via <code>web_search_20250305</code> nativ, max 12 apeluri)</td>
-              <td>Tavily API</td>
-              <td>SearXNG API (self-hosted, retea locala)</td>
-              <td>OpenAlex API + CrossRef API (baze de date academice structurate)</td>
-            </tr>
-            <tr>
-              <td><strong>Proceseaza rezultatele</strong></td>
-              <td>Claude — sintetizeaza, extrage, scrie summary-uri</td>
-              <td>Python direct — extrage titlu, URL, data, primele 600 chars din snippet</td>
-              <td>Ollama local — rescrie summary-urile cu LLM</td>
-              <td>Python direct — abstractele vin direct din baza de date</td>
-            </tr>
-            <tr>
-              <td><strong>LLM implicat</strong></td>
-              <td>Da — Claude Sonnet (cloud)</td>
-              <td>Nu</td>
-              <td>Da — llama3, gemma4, mistral etc. (local)</td>
-              <td>Nu</td>
-            </tr>
-            <tr>
-              <td><strong>Controlul surselor</strong></td>
-              <td>Sugestie in prompt <em>(negarantat)</em></td>
-              <td>Lista exacta <code>ACADEMIC_DOMAINS</code></td>
-              <td>Motoarele configurate in SearXNG</td>
-              <td>Filtrare exacta dupa <code>authorships.author.id</code> in OpenAlex + verificare lista autori in CrossRef</td>
-            </tr>
-            <tr>
-              <td><strong>Rezultate tipice / run</strong></td>
-              <td>5–15 articole</td>
-              <td>15–30+ articole</td>
-              <td>10–25 articole</td>
-              <td>Toate lucrarile autorului din fereastra <code>days_back</code> (poate fi 0 daca autorul nu e in OpenAlex)</td>
-            </tr>
-            <tr>
-              <td><strong>Calitate summary-uri</strong></td>
-              <td>Foarte buna — Claude scrie in limbaj natural coerent</td>
-              <td>Snippet brut, nereformat</td>
-              <td>Buna — LLM local rescrie</td>
-              <td>Abstract complet din baza de date (acolo unde exista)</td>
-            </tr>
-            <tr>
-              <td><strong>Cost / run</strong></td>
-              <td>~$0.01–0.05 (tokens Anthropic)</td>
-              <td>~$0.001 (doar Tavily)</td>
-              <td>0 (self-hosted)</td>
-              <td>0 (API-uri publice gratuite)</td>
-            </tr>
-            <tr>
-              <td><strong>Viteza</strong></td>
-              <td>15–90s</td>
-              <td>5–15s</td>
-              <td>15–60s</td>
-              <td>3–8s</td>
-            </tr>
-            <tr>
-              <td><strong>Necesita</strong></td>
-              <td><code>ANTHROPIC_API_KEY</code></td>
-              <td><code>TAVILY_API_KEY</code></td>
-              <td><code>SEARXNG_BASE_URL</code> + Ollama instalat</td>
-              <td>Nimic — fara cheie API</td>
-            </tr>
-            <tr>
-              <td><strong>Cand il folosesti</strong></td>
-              <td>Intrebari complexe, sinteza tematica, domenii nise</td>
-              <td>Volum maxim, surse garantat academice, viteza, cost minim</td>
-              <td>Self-hosted complet, fara costuri API externe</td>
-              <td><strong>Monitorizare productie stiintifica a unui autor specific</strong> — articolele publicate de o persoana</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Nota filtrare data -->
-      <div style="background:rgba(196,92,0,.07);border:1px solid rgba(196,92,0,.2);border-left:3px solid #c45c00;border-radius:.4rem;padding:.65rem .9rem;font-size:.84rem;">
-        <strong style="color:#c45c00;"><i class="bi bi-calendar-check me-1"></i>Filtrare data stricta — doua etape garantate</strong><br>
-        <strong>Etapa 1 (API nativ):</strong> <code>days=N</code> la Tavily; prompt cu data explicita la Claude; filtru client-side la SearXNG (nu suporta <code>time_range</code> pe toate motoarele).<br>
-        <strong>Etapa 2 (Python post-procesare):</strong> dupa ce LLM-ul sau API-ul returneaza articolele, Python re-valideaza fiecare data cu <code>parse_date()</code> si exclude strict orice articol cu <code>pub_dt &lt; cutoff</code>. Aplicat la toti providerii.<br>
-        Articolele fara data confirmata sunt acceptate doar daca provin de pe domenii academice recunoscute (lista editabila in <code>config/academic_domains.txt</code>).
-        Summary-urile sunt curatate automat de watermarks IEEE (<code>strip_watermarks()</code>). Toate aceste utilitare sunt consolidate in <code>app/services/_utils.py</code>.
-      </div>
-
-    </div>
   </div>
 </div>
 </section>
