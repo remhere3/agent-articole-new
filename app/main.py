@@ -38,6 +38,7 @@ BASE_DIR = Path(__file__).parent.parent
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app_settings.verify_secret_key()  # politica optionala (enforce_secret_key); off implicit
     init_db()
     logger.info("Database initialized")
     start_scheduler()

@@ -308,6 +308,7 @@ Vezi `docs/api_examples.md` sau Swagger la `http://localhost:8002/docs`.
 | `SMTP_TIMEOUT` | Timeout (s) pe operatia SMTP; server blocat nu mai tine jobul ostatic | `30.0` |
 | `EMAIL_FROM` | Expeditor afisat in email | `Agent Articole <noreply@example.com>` |
 | `APP_SECRET_KEY` | Cheie secreta aplicatie (schimba in productie!) | `dev-secret-change-in-production` |
+| `ENFORCE_SECRET_KEY` | Optional. Daca `true`, la pornire cere ca `APP_SECRET_KEY` sa fie schimbata: in productie refuza pornirea, in debug doar avertizeaza. Implicit off (cheia nu e obligatorie) | `false` |
 | `APP_PORT` | Portul serverului | `8002` |
 | `VERSION` | Versiunea afisata in UI/documentatie | `1.2` |
 | `DATABASE_URL` | URL baza de date | `sqlite:///./agent_articole.db` |

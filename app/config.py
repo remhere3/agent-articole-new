@@ -1,5 +1,13 @@
+import logging
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# Valori considerate "neschimbate" pentru app_secret_key: default-ul din cod si
+# placeholder-ul din .env.example. Daca enforce_secret_key e activat, oricare
+# dintre acestea (sau gol) declanseaza politica la startup.
+_WEAK_SECRET_KEYS = {"dev-secret-change-in-production", "change_this_secret_key", ""}
 
 
 class Settings(BaseSettings):
@@ -33,6 +41,10 @@ class Settings(BaseSettings):
     smtp_timeout: float = 30.0
 
     app_secret_key: str = "dev-secret-change-in-production"
+    # Optional, NU obligatoriu. Cand e True, la startup se verifica ca
+    # app_secret_key a fost schimbata fata de placeholder. Implicit False
+    # (off) — cheia ramane pur configurabila, fara sa blocheze pornirea.
+    enforce_secret_key: bool = False
     database_url: str = "sqlite:///./agent_articole.db"
     debug: bool = False
     app_port: int = 8002
@@ -51,6 +63,31 @@ class Settings(BaseSettings):
         if not self.ntfy_enabled or not self.ntfy_topic:
             return None
         return f"{self.ntfy_base_url.rstrip('/')}/{self.ntfy_topic}"
+
+    @property
+    def secret_key_is_weak(self) -> bool:
+        """True daca app_secret_key e inca o valoare placeholder (neschimbata)."""
+        return self.app_secret_key.strip() in _WEAK_SECRET_KEYS
+
+    def verify_secret_key(self) -> None:
+        """Aplica politica enforce_secret_key la startup (off implicit).
+
+        Nu face nimic daca toggle-ul e oprit sau cheia a fost schimbata. Daca
+        e pornit si cheia e inca cea default: in productie (debug=False) refuza
+        pornirea (RuntimeError); in debug doar avertizeaza, ca sa nu incurce
+        dezvoltarea locala.
+        """
+        if not self.enforce_secret_key or not self.secret_key_is_weak:
+            return
+        msg = (
+            "APP_SECRET_KEY este inca valoarea default (placeholder). "
+            "enforce_secret_key=True cere o cheie proprie — seteaza APP_SECRET_KEY "
+            "in .env (sau dezactiveaza ENFORCE_SECRET_KEY)."
+        )
+        if self.debug:
+            logger.warning("[config] %s (debug=True -> pornesc oricum)", msg)
+        else:
+            raise RuntimeError(msg)
 
 
 settings = Settings()
